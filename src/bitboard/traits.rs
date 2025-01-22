@@ -15,7 +15,7 @@ pub trait BitArray:
     + Sized
 {
     /// Create a new instance of the bit array with all bits set to 0
-    fn new_zero() -> Self;
+    fn new_zero(min_length: usize) -> Self;
 
     fn bit_get(&self, index: usize) -> bool;
     fn bit_set(&mut self, index: usize, value: bool);
