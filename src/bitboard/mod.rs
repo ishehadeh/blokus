@@ -1,5 +1,6 @@
 mod traits;
 mod coordinates;
+pub mod bitarray_impl;
 
 pub use coordinates::*;
 pub use traits::*;
@@ -31,28 +32,6 @@ impl<GeomT: BoardGeometry, BitsT: BitArray> BitBoard<GeomT, BitsT> {
     /// Get the board's geomtry (i.e. height and width)
     pub fn geometry(&self) -> &GeomT {
         &self.geometry
-    }
-}
-
-impl BitArray for u32 {
-    fn new_zero(min_length: usize) -> Self {
-        if min_length > u32::BITS as usize {
-            panic!("cannot create a bit array of length {min_length} with a u32 as the backing store");
-        }
-
-        0u32
-    }
-
-    fn bit_get(&self, index: usize) -> bool {
-        self & (1u32 << index) != 0
-    }
-
-    fn bit_set(&mut self, index: usize, value: bool) {
-        if value {
-            *self |= 1u32 << index;
-        } else {
-            *self &= !(1u32 << index);
-        }
     }
 }
 
