@@ -1,4 +1,4 @@
-use crate::bitboard::{BitBoard, DynGeometry};
+use crate::bitboard::{BitBoard, BoardGeometry, Coordinates, Direction, DirectionSet, DynGeometry};
 
 pub struct BlokusRuleset {}
 
@@ -87,11 +87,115 @@ pub const STANDARD_BLOKUS_PIECES: [BlokusPiece; 21] = [
     ),
 ];
 
+const STANDARD_BLOKUS_PIECES_CORNER_COUNT: usize = {
+    let mut corner_count: usize = 0;
+    let mut i = 0;
+    while i < STANDARD_BLOKUS_PIECES.len() {
+        corner_count += STANDARD_BLOKUS_PIECES[i].count_corners();
+        i += 1;
+    }
+
+    corner_count
+};
+
+pub const STANDARD_BLOKUS_PIECES_CORNER_OFFSETS: [usize; 21] = {
+    let mut current_corner_count: usize = 0;
+    let mut corner_offsets: [usize; 21] = [0; 21];
+    let mut i = 0;
+    while i < STANDARD_BLOKUS_PIECES.len() {
+        corner_offsets[i] = current_corner_count;
+        current_corner_count += STANDARD_BLOKUS_PIECES[i].count_corners();
+        i += 1;
+    }
+
+    corner_offsets
+};
+
+pub const STANDARD_BLOKUS_PIECES_CORNERS: [Coordinates; STANDARD_BLOKUS_PIECES_CORNER_COUNT] = {
+    let mut corner_coordinates = [Coordinates::zero(); STANDARD_BLOKUS_PIECES_CORNER_COUNT];
+    let mut piece_i = 0;
+    while piece_i < STANDARD_BLOKUS_PIECES.len() {
+        let mut local_corner_i = 0;
+        while local_corner_i < STANDARD_BLOKUS_PIECES[piece_i].count_corners() {
+            corner_coordinates[STANDARD_BLOKUS_PIECES_CORNER_OFFSETS[piece_i] + local_corner_i] =
+                STANDARD_BLOKUS_PIECES[piece_i].nth_corner(local_corner_i);
+            local_corner_i += 1;
+        }
+        piece_i += 1;
+    }
+
+    corner_coordinates
+};
+
 pub struct BlokusPiece {
     pub shape: BitBoard<DynGeometry, u32>,
 }
 
 impl BlokusPiece {
+    pub const fn nth_corner(&self, n: usize) -> Coordinates {
+        let mut corners = n;
+        let mut coord = Coordinates::zero();
+        while coord.x < self.shape.geometry().width() {
+            while coord.y < self.shape.geometry().height() {
+                let mut i = 0;
+                while i < 4 {
+                    let corner_mask = Direction::DIAGONAL[i].components().union_c(
+                        DirectionSet::from_bits_truncate_c(
+                            Direction::DIAGONAL[i] as u8,
+                            DirectionSet::CONST_TOKEN,
+                        ),
+                    );
+                    let set_blocks_around_corner = self
+                        .shape
+                        .are_adjacent_tiles_set(coord, corner_mask)
+                        .bits_c();
+                    if set_blocks_around_corner == 0 {
+                        if corners == 0 {
+                            return coord + Direction::DIAGONAL[i].as_coordinates();
+                        } else {
+                            corners -= 1;
+                        }
+                    }
+                    i += 1;
+                }
+                coord.y += 1;
+            }
+            coord.y = 0;
+            coord.x += 1;
+        }
+        panic!("invalid corner index");
+    }
+
+    pub const fn count_corners(&self) -> usize {
+        let mut corners = 0;
+        let mut coord = Coordinates::zero();
+        while coord.x < self.shape.geometry().width() {
+            while coord.y < self.shape.geometry().height() {
+                let mut i = 0;
+                while i < 4 {
+                    let corner_mask = Direction::DIAGONAL[i].components().union_c(
+                        DirectionSet::from_bits_truncate_c(
+                            Direction::DIAGONAL[i] as u8,
+                            DirectionSet::CONST_TOKEN,
+                        ),
+                    );
+                    let set_blocks_around_corner = self
+                        .shape
+                        .are_adjacent_tiles_set(coord, corner_mask)
+                        .bits_c();
+                    if set_blocks_around_corner == 0 {
+                        corners += 1;
+                    }
+                    i += 1;
+                }
+                coord.y += 1;
+            }
+            coord.y = 0;
+            coord.x += 1;
+        }
+        corners
+    }
+
     pub const fn parse(str: &'static str) -> BlokusPiece {
         // TODO: verify str is all ascii
         let str_b = str.as_bytes();
@@ -154,10 +258,7 @@ impl BlokusPiece {
         }
 
         BlokusPiece {
-            shape: BitBoard::new_with_data(
-                DynGeometry::new(columns as u16, rows as u16),
-                board_data,
-            ),
+            shape: BitBoard::new_with_data(DynGeometry::new(columns, rows), board_data),
         }
     }
 }
@@ -166,7 +267,7 @@ impl BlokusPiece {
 mod test {
     use crate::bitboard::BoardGeometry;
 
-    use super::STANDARD_BLOKUS_PIECES;
+    use super::{BlokusPiece, STANDARD_BLOKUS_PIECES};
 
     #[test]
     fn standard_blokus_pieces_have_at_most_5_tiles() {
@@ -174,7 +275,7 @@ mod test {
             let tile_count = piece.shape.data().count_ones();
             assert!(
                 tile_count <= 5,
-                "piece #{i} has {tile_count} tiles, expected at most 5", 
+                "piece #{i} has {tile_count} tiles, expected at most 5",
             )
         }
     }
@@ -223,5 +324,11 @@ mod test {
                 ),
             }
         }
+    }
+
+    #[test]
+    fn correctly_count_1x1_corners() {
+        let _1x1 = BlokusPiece::parse("x");
+        assert_eq!(_1x1.count_corners(), 4);
     }
 }

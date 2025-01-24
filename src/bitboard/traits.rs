@@ -1,6 +1,7 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Shl, ShlAssign, Shr, ShrAssign};
 
 /// The backing store for a bit board
+#[const_trait]
 pub trait BitArray:
     ShlAssign
     + ShrAssign
@@ -23,7 +24,9 @@ pub trait BitArray:
 
 
 /// Describes the size of a rectangular board
+
+#[const_trait]
 pub trait BoardGeometry {
-    fn width(&self) -> u16;
-    fn height(&self) -> u16;
+    fn width(&self) -> i16;
+    fn height(&self) -> i16;
 }

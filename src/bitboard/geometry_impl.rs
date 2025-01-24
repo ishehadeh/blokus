@@ -1,35 +1,38 @@
 use super::BoardGeometry;
 
 
-pub struct StaticGeometry<const WIDTH: u16, const HEIGHT: u16>;
+pub struct StaticGeometry<const WIDTH: i16, const HEIGHT: i16>;
 
-impl<const WIDTH: u16, const HEIGHT: u16> BoardGeometry for StaticGeometry<WIDTH,  HEIGHT> {
-    fn width(&self) -> u16 {
+impl<const WIDTH: i16, const HEIGHT: i16> const BoardGeometry for StaticGeometry<WIDTH,  HEIGHT> {
+    fn width(&self) -> i16 {
         WIDTH
     }
 
-    fn height(&self) -> u16 {
+    fn height(&self) -> i16 {
         HEIGHT
     }
 }
 
 pub struct DynGeometry {
-    pub width: u16,
-    pub height: u16,
+    pub width: i16,
+    pub height: i16,
 }
 
 impl DynGeometry {
-    pub const fn new(width: u16, height: u16) -> DynGeometry {
+    pub const fn new(width: i16, height: i16) -> DynGeometry {
+        if width < 0 || height < 0 {
+            panic!("invalid width and height")
+        } 
         DynGeometry { width, height }
     }
 }
 
-impl BoardGeometry for DynGeometry {
-    fn width(&self) -> u16 {
+impl const BoardGeometry for DynGeometry {
+    fn width(&self) -> i16 {
         self.width
     }
 
-    fn height(&self) -> u16 {
+    fn height(&self) -> i16 {
         self.height
     }
 }
