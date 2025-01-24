@@ -2,10 +2,92 @@ use crate::bitboard::{BitBoard, DynGeometry, StaticGeometry};
 
 pub struct BlokusRuleset {}
 
-const STANDARD_BLOKUS_PIECES: [BlokusPiece; 3] = [
+const STANDARD_BLOKUS_PIECES: [BlokusPiece; 21] = [
     BlokusPiece::parse("x"),
+    BlokusPiece::parse("xx"),
     BlokusPiece::parse("xxx"),
-    BlokusPiece::parse(".x.|xxx"),
+    BlokusPiece::parse("xxxx"),
+    BlokusPiece::parse("xxxxx"),
+    BlokusPiece::parse(
+        r#"x x x x
+           x"#
+    ),
+    BlokusPiece::parse(
+        r#"x x x
+           x
+           x"#
+    ),
+
+    BlokusPiece::parse(
+        r#"x x x
+           x"#
+    ),
+
+    BlokusPiece::parse(
+        r#"x x
+           x"#
+    ),
+    BlokusPiece::parse(
+        r#". x .
+           x x x
+           . x ."#
+    ),
+    BlokusPiece::parse(
+        r#". x .
+           . x x
+           x x ."#
+    ),
+    BlokusPiece::parse(
+        r#"x . .
+           x x x
+           x . ."#
+    ),
+    BlokusPiece::parse(
+        r#"x
+           x .
+           x x
+           x ."#
+    ),
+    BlokusPiece::parse(
+        r#"x
+           x .
+           x x
+           x ."#
+    ),
+    BlokusPiece::parse(
+        r#"x x
+           x .
+           x x"#
+    ),
+    BlokusPiece::parse(
+        r#"x x
+           x x"#
+    ),
+    BlokusPiece::parse(
+        r#"x x x
+           x x ."#
+    ),
+    BlokusPiece::parse(
+        r#". x x
+           . x .
+           x x ."#
+    ),
+    BlokusPiece::parse(
+        r#". . x
+           . x x
+           . x .
+           . x"#
+    ),
+    BlokusPiece::parse(
+        r#". . x
+           . x x
+           x x ."#
+    ),
+    BlokusPiece::parse(
+        r#". x
+           x x
+           x ."#
+    )
 ];
 
 pub struct BlokusPiece {
@@ -17,8 +99,8 @@ impl BlokusPiece {
         // TODO: verify str is all ascii
         let str_b = str.as_bytes();
 
-        let mut columns = 0;
-        let mut rows = 0;
+        let mut columns = 1;
+        let mut rows = 1;
 
         // determine row and column counts
         {
@@ -36,6 +118,7 @@ impl BlokusPiece {
                     b'x' | b'.' => {
                         current_col_count += 1;
                     }
+                    b' ' => (),
                     _ => panic!("invalid character in blokus piece data"),
                 }
 
@@ -60,7 +143,8 @@ impl BlokusPiece {
                             board_data |= 1u32 << (columns * y + x);
                         }
                         x += 1;
-                    }
+                    }                    
+                    b' ' => (),
                     _ => panic!("invalid character in blokus piece data"),
                 }
 
