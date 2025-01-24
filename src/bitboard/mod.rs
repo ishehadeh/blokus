@@ -1,10 +1,13 @@
 mod traits;
 mod coordinates;
-pub mod bitarray_impl;
+mod geometry_impl;
+mod bitarray_impl;
 
 pub use coordinates::*;
 pub use traits::*;
-
+pub use geometry_impl::*;
+#[allow(unused, reason="currently there's nothing being re-exported, but that may change in the future")]
+pub use bitarray_impl::*;
 
 /// A 2D array of boolean values, typically used to store some information about a GridGame
 pub struct BitBoard<GeomT: BoardGeometry, BitsT: BitArray> {
@@ -32,38 +35,5 @@ impl<GeomT: BoardGeometry, BitsT: BitArray> BitBoard<GeomT, BitsT> {
     /// Get the board's geomtry (i.e. height and width)
     pub fn geometry(&self) -> &GeomT {
         &self.geometry
-    }
-}
-
-pub struct StaticGeometry<const WIDTH: u16, const HEIGHT: u16>;
-
-impl<const WIDTH: u16, const HEIGHT: u16> BoardGeometry for StaticGeometry<WIDTH,  HEIGHT> {
-    fn width(&self) -> u16 {
-        WIDTH
-    }
-
-    fn height(&self) -> u16 {
-        HEIGHT
-    }
-}
-
-pub struct DynGeometry {
-    pub width: u16,
-    pub height: u16,
-}
-
-impl DynGeometry {
-    pub const fn new(width: u16, height: u16) -> DynGeometry {
-        DynGeometry { width, height }
-    }
-}
-
-impl BoardGeometry for DynGeometry {
-    fn width(&self) -> u16 {
-        self.width
-    }
-
-    fn height(&self) -> u16 {
-        self.height
     }
 }
