@@ -1,131 +1,137 @@
 use crate::bitboard::{BitBoard, BoardGeometry, Coordinates, Direction, DirectionSet, DynGeometry};
 
 pub struct BlokusRuleset {}
+pub trait BlokusPieceSet<const N: usize> {
+    const PIECES: [BlokusPiece; N];
 
-pub const STANDARD_BLOKUS_PIECES: [BlokusPiece; 21] = [
-    BlokusPiece::parse("x"),
-    BlokusPiece::parse("xx"),
-    BlokusPiece::parse("xxx"),
-    BlokusPiece::parse("xxxx"),
-    BlokusPiece::parse("xxxxx"),
-    BlokusPiece::parse(
-        r#"x x x x
-           x"#,
-    ),
-    BlokusPiece::parse(
-        r#"x x x
-           x
-           x"#,
-    ),
-    BlokusPiece::parse(
-        r#"x x x
-           x"#,
-    ),
-    BlokusPiece::parse(
-        r#"x x
-           x"#,
-    ),
-    BlokusPiece::parse(
-        r#". x .
-           x x x
-           . x ."#,
-    ),
-    BlokusPiece::parse(
-        r#". x .
-           . x x
-           x x ."#,
-    ),
-    BlokusPiece::parse(
-        r#"x . .
-           x x x
-           x . ."#,
-    ),
-    BlokusPiece::parse(
-        r#"x .
-           x .
-           x x
-           x ."#,
-    ),
-    BlokusPiece::parse(
-        r#"x .
-           x x
-           x ."#,
-    ),
-    BlokusPiece::parse(
-        r#"x x
-           x .
-           x x"#,
-    ),
-    BlokusPiece::parse(
-        r#"x x
-           x x"#,
-    ),
-    BlokusPiece::parse(
-        r#"x x x
-           x x ."#,
-    ),
-    BlokusPiece::parse(
-        r#". x x
-           . x .
-           x x ."#,
-    ),
-    BlokusPiece::parse(
-        r#". x
-           x x
-           x .
-           x"#,
-    ),
-    BlokusPiece::parse(
-        r#". . x
-           . x x
-           x x ."#,
-    ),
-    BlokusPiece::parse(
-        r#". x
-           x x
-           x ."#,
-    ),
-];
-
-const STANDARD_BLOKUS_PIECES_CORNER_COUNT: usize = {
-    let mut corner_count: usize = 0;
-    let mut i = 0;
-    while i < STANDARD_BLOKUS_PIECES.len() {
-        corner_count += STANDARD_BLOKUS_PIECES[i].count_corners();
-        i += 1;
-    }
-
-    corner_count
-};
-
-pub const STANDARD_BLOKUS_PIECES_CORNER_OFFSETS: [usize; 21] = {
-    let mut current_corner_count: usize = 0;
-    let mut corner_offsets: [usize; 21] = [0; 21];
-    let mut i = 0;
-    while i < STANDARD_BLOKUS_PIECES.len() {
-        corner_offsets[i] = current_corner_count;
-        current_corner_count += STANDARD_BLOKUS_PIECES[i].count_corners();
-        i += 1;
-    }
-
-    corner_offsets
-};
-
-pub const STANDARD_BLOKUS_PIECES_CORNERS: [Coordinates; STANDARD_BLOKUS_PIECES_CORNER_COUNT] = {
-    let mut corner_coordinates = [Coordinates::zero(); STANDARD_BLOKUS_PIECES_CORNER_COUNT];
-    let mut piece_i = 0;
-    while piece_i < STANDARD_BLOKUS_PIECES.len() {
-        let mut local_corner_i = 0;
-        while local_corner_i < STANDARD_BLOKUS_PIECES[piece_i].count_corners() {
-            corner_coordinates[STANDARD_BLOKUS_PIECES_CORNER_OFFSETS[piece_i] + local_corner_i] =
-                STANDARD_BLOKUS_PIECES[piece_i].nth_corner(local_corner_i);
-            local_corner_i += 1;
+    const CORNER_COUNT: usize = {
+        let mut corner_count: usize = 0;
+        let mut i = 0;
+        while i < Self::PIECES.len() {
+            corner_count += Self::PIECES[i].count_corners();
+            i += 1;
         }
-        piece_i += 1;
-    }
+    
+        corner_count
+    };
+    
+    const CORNER_OFFSETS: [usize; 21] = {
+        let mut current_corner_count: usize = 0;
+        let mut corner_offsets: [usize; 21] = [0; 21];
+        let mut i = 0;
+        while i < N {
+            corner_offsets[i] = current_corner_count;
+            current_corner_count += Self::PIECES[i].count_corners();
+            i += 1;
+        }
+    
+        corner_offsets
+    };
+    
+    const CORNERS: [Coordinates; Self::CORNER_COUNT] = {
+        let mut corner_coordinates = [Coordinates::zero(); Self::CORNER_COUNT];
+        let mut piece_i = 0;
+        while piece_i < Self::PIECES.len() {
+            let mut local_corner_i = 0;
+            while local_corner_i < Self::PIECES[piece_i].count_corners() {
+                corner_coordinates[Self::CORNER_OFFSETS[piece_i] + local_corner_i] =
+                    Self::PIECES[piece_i].nth_corner(local_corner_i);
+                local_corner_i += 1;
+            }
+            piece_i += 1;
+        }
+    
+        corner_coordinates
+    } where [(); Self::CORNER_COUNT]:;
+}
 
-    corner_coordinates
-};
+pub struct StandardBlokusPieceSet;
+impl BlokusPieceSet<21> for StandardBlokusPieceSet {
+    const PIECES: [BlokusPiece; 21] = [
+        BlokusPiece::parse("x"),
+        BlokusPiece::parse("xx"),
+        BlokusPiece::parse("xxx"),
+        BlokusPiece::parse("xxxx"),
+        BlokusPiece::parse("xxxxx"),
+        BlokusPiece::parse(
+            r#"x x x x
+               x"#,
+        ),
+        BlokusPiece::parse(
+            r#"x x x
+               x
+               x"#,
+        ),
+        BlokusPiece::parse(
+            r#"x x x
+               x"#,
+        ),
+        BlokusPiece::parse(
+            r#"x x
+               x"#,
+        ),
+        BlokusPiece::parse(
+            r#". x .
+               x x x
+               . x ."#,
+        ),
+        BlokusPiece::parse(
+            r#". x .
+               . x x
+               x x ."#,
+        ),
+        BlokusPiece::parse(
+            r#"x . .
+               x x x
+               x . ."#,
+        ),
+        BlokusPiece::parse(
+            r#"x .
+               x .
+               x x
+               x ."#,
+        ),
+        BlokusPiece::parse(
+            r#"x .
+               x x
+               x ."#,
+        ),
+        BlokusPiece::parse(
+            r#"x x
+               x .
+               x x"#,
+        ),
+        BlokusPiece::parse(
+            r#"x x
+               x x"#,
+        ),
+        BlokusPiece::parse(
+            r#"x x x
+               x x ."#,
+        ),
+        BlokusPiece::parse(
+            r#". x x
+               . x .
+               x x ."#,
+        ),
+        BlokusPiece::parse(
+            r#". x
+               x x
+               x .
+               x"#,
+        ),
+        BlokusPiece::parse(
+            r#". . x
+               . x x
+               x x ."#,
+        ),
+        BlokusPiece::parse(
+            r#". x
+               x x
+               x ."#,
+        ),
+    ];
+}
 
 pub struct BlokusPiece {
     pub shape: BitBoard<DynGeometry, u32>,
@@ -267,11 +273,11 @@ impl BlokusPiece {
 mod test {
     use crate::bitboard::BoardGeometry;
 
-    use super::{BlokusPiece, STANDARD_BLOKUS_PIECES};
+    use super::{BlokusPiece, BlokusPieceSet, StandardBlokusPieceSet};
 
     #[test]
     fn standard_blokus_pieces_have_at_most_5_tiles() {
-        for (i, piece) in STANDARD_BLOKUS_PIECES.iter().enumerate() {
+        for (i, piece) in StandardBlokusPieceSet::PIECES.iter().enumerate() {
             let tile_count = piece.shape.data().count_ones();
             assert!(
                 tile_count <= 5,
@@ -306,7 +312,7 @@ mod test {
             (2, 3),
         ];
 
-        for (i, piece) in STANDARD_BLOKUS_PIECES.iter().enumerate() {
+        for (i, piece) in StandardBlokusPieceSet::PIECES.iter().enumerate() {
             let geom = piece.shape.geometry();
             let index = dimen
                 .iter()
