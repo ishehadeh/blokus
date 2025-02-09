@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <style>
+            body {
+                background-color: #0f0f0f;
+            }
+            
+            .board {
+                display: grid;
+                grid-template-columns: repeat(var(--board-width, 6), 1fr);
+                grid-template-rows: repeat(var(--board-height, 6), 1fr);
+                width: 400px;
+                aspect-ratio: 1 / 1;
+                gap: 4px;
+                column-gap: 4px;
+            }
+
+            .board > cell {
+                background-color: white;
+                width: 100%;
+            }
+
+            .board > cell.selected {
+                outline: 2px solid red;
+            }
+
+            /** Outher corner:
+                - recieves green, orange
+                - can be placed on green
+             */
+             cell[x-state="green"]  { background-color: green; }
+            /** Orange is a side piece
+                Recieves:
+                    - orange
+                    - green
+            **/
+            cell[x-state="orange"] { background-color: orange; }
+            /** Blue is interior corner
+                - It recieves green, but nothing else
+            **/
+            cell[x-state="blue"]    { background-color: blue; }
+
+            /** interior, recieves none **/
+            cell[x-state="red"]    { background-color: red; }
+            /**
+            So, white -> green,orange,blue,red
+                green -> green
+                      -> orange
+                orange -> orange
+                       -> green
+                blue -> green
+                red ->
+            */
+        </style>
+        <script>
+            const CELL_STATES = [
+                "green", // outer corner
+                "orange", // side
+                "blue", // inner corner
+                "red", // inner
+            ]
+            class Board {
+                /** @type {HTMLElement} */
+                #el;
+
+                constructor(selector) {
+                    this.#el = document.querySelector(selector);
+                    this._initEventListeners();
+                }
+
+                /** @returns {number} */
+                get width() {
+                    return +(this.#el.style.getPropertyValue("--board-width") ?? "6")
+                }
+
+                /** @returns {number} */
+                get height() {
+                    return +(this.#el.style.getPropertyValue("--board-height") ?? "6")
+                }
+
+                /** @returns {HTMLElement} */
+                selected() {
+                    return this.#el.querySelector(".selected");
+                }
+
+                /** @returns {{x: number, y: number}} */
+                getSelectedCoordinates() {
+                    const selectedCell = this.selected();
+                    const cells = this.#el.getElementsByTagName("cell");
+                    const w = this.width;
+                    const h = this.height;
+                    for(let x = 0; x < w; ++x) {
+                        for (let y = 0; y < h; ++y) {
+                            if (cells.item(x + y * w) == selectedCell) {
+                                return { x, y }
+                            }
+                        }
+                    }
+                    return null;
+                }
+
+                /**
+                 * @param {string|HTMLElement} elOrQuerySelector
+                 * @returns {void}
+                 */
+                select(elOrQuerySelector) {
+                    this.#el
+                        .querySelectorAll(".selected")
+                        .forEach((v) => v.classList.remove("selected"));
+
+                    /** @type {HTMLElement} */
+                    let el;
+                    if (typeof elOrQuerySelector === "string") { 
+                        el = this.#el.querySelector(querySelector);
+                    } else if (elOrQuerySelector instanceof HTMLElement) {
+                        el = elOrQuerySelector;
+                    } else {
+                        throw new TypeError(`expected string or HTMLElement, got ${elOrQuerySelector}`);
+                    }
+                    el.classList.add("selected");
+                }
+                
+                /** 
+                 * @param {PointerEvent} ev
+                 * @returns {void}
+                 */
+                _cellClickedHandler(ev) {
+                    this.select(ev.target);
+                }
+
+                /**
+                 * @param {number} x The column index (zero-based)
+                 * @param {number} y The row index (zero-based)
+                 * @returns {HTMLElement}
+                 */
+                getCellElementByPosition(x, y) {
+                    if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
+                        return null;
+                    }
+
+                    const cells = this.#el.getElementsByTagName("cell");
+                    return cells.item(y * this.width + x);
+                }
+
+                /** 
+                 * @param {number} x
+                 * @param {number} y
+                 * @param {"green"|"orange"|"blue"|"red"|null} color
+                 */
+                setPiece(x, y, color, config = { sideEffects: true }) {
+                    const cell = this.getCellElementByPosition(x, y);
+                    switch (color) {
+                        case null:
+                            cell.removeAttribute("x-state");
+                            break;
+                        case "blue":
+                            cell.setAttribute("x-state", "blue");
+                            if (config.sideEffects) {
+                                this.trySetPieceColor(x - 1, y, "orange");
+                                this.trySetPieceColor(x + 1, y, "orange");
+                                this.trySetPieceColor(x, y - 1, "orange");
+                                this.trySetPieceColor(x, y + 1, "orange");
+                                this.trySetPieceColor(x - 1, y - 1, "green");
+                                this.trySetPieceColor(x - 1, y + 1, "green");
+                                this.trySetPieceColor(x + 1, y - 1, "green");
+                                this.trySetPieceColor(x + 1, y + 1, "green");
+                            }
+                            break;
+                        case "green":
+                            cell.setAttribute("x-state", "green");
+                            break;
+                        case "orange":
+                            cell.setAttribute("x-state", "orange");
+                            break;
+                        case "red":
+                            cell.setAttribute("x-state", "red");
+                            break;
+                    }
+                }
+
+                /** 
+                 * @param {number} x
+                 * @param {number} y
+                 * @param {"green"|"orange"|"blue"|"red"} color
+                 */
+                trySetPieceColor(x, y, color) {
+                    const cell = this.getCellElementByPosition(x, y);
+                    if (cell === null) return;
+
+                    const currentColor = cell.getAttribute("x-state");
+                    switch (currentColor) {
+                        case null:
+                        case "green":
+                        case "red":
+                            cell.setAttribute("x-state", color);
+                            break;
+                        case "blue":
+                            break;
+                        case "orange":
+                            if (["red", "blue"].includes(color)) {
+                                cell.setAttribute("x-state", color);
+                            }
+                            break;
+                    }
+                }
+
+                reset() {
+                    this.#el.innerHTML = "<cell></cell>".repeat(this.width * this.height);
+                    this._initEventListeners();
+                }
+
+                /**
+                 * @param {KeyboardEvent} ev
+                 */
+                _keydownEventHandler(ev) {
+                    if (this.selected() != null) {
+                        const { x, y } = this.getSelectedCoordinates();
+
+                        switch (ev.key) {
+                            case "0":
+                                this.setPiece(x, y, null);
+                                break;
+                            case "1":
+                                this.setPiece(x, y, "green");
+                                break;
+                            case "2":
+                                this.setPiece(x, y, "orange");
+                                break;
+                            case "3":
+                                this.setPiece(x, y, "blue");
+                                break;
+                            case "4":
+                                this.setPiece(x, y, "red");
+                                break;
+                        }
+                    }
+                }
+
+                _initEventListeners() {
+                    this.#el
+                        .querySelectorAll("cell")
+                        .forEach((cell) => {
+                            cell["bk_eventListener:click"] = (ev) => this._cellClickedHandler(ev);
+                            cell.addEventListener("click", cell["bk_eventListener:click"]);
+                        });
+                    
+                    document.body["bk_eventListener:keydown"] = (ev) => this._keydownEventHandler(ev)
+                    document.body.addEventListener("keypress", document.body["bk_eventListener:keydown"]);
+
+                }
+
+                _deinitEventListeners() {
+                    this.#el
+                        .querySelectorAll("cell")
+                        .forEach((cell) => {
+                            if ("bk_eventListener" in cell) {
+                                delete cell["bk_eventListener:click"];
+                                cell.removeEventListener("click", cell["bk_eventListener:click"]);
+                            }
+                        });
+                        
+                    if ("bk_eventListener:keydown" in this.#el) {
+                        delete this.#el["bk_eventListener:keydown"];
+                        this.#el.removeEventListener("keypress", this.#el["bk_eventListener:keydown"]);
+                    }
+                }
+
+                saveState() {
+                    const name = this.#el.getAttribute("name", "default");
+                    localStorage.setItem(`BlokusBoard.${name}`, this.#el.innerHTML);
+                }
+
+                restoreState() {
+                    const name = this.#el.getAttribute("name", "default");
+                    const state = localStorage.getItem(`BlokusBoard.${name}`);
+                    if (state != null) {
+                        this._deinitEventListeners();
+                        this.#el.innerHTML = state;
+                        this._initEventListeners();
+                    }
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <div class="board" name="board1" style="--board-width: 6; --board-height: 6">
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+            <cell></cell>
+        </div>
+
+        <script>
+            const BOARD = new Board(".board");
+            BOARD.restoreState();
+            setInterval((save) => {
+                BOARD.saveState();
+            }, 1000);
+        </script>
+
+        <div>
+            <p>
+
+            </p>
+        </div>
+    </body>
+</html>
