@@ -5,6 +5,8 @@
         <style>
             body {
                 background-color: #0f0f0f;
+                color: #efefef;
+                font-size: 1.2rem;
             }
             
             .board {
@@ -68,6 +70,10 @@
                 constructor(selector) {
                     this.#el = document.querySelector(selector);
                     this._initEventListeners();
+                }
+
+                get root() {
+                    return this.#el
                 }
 
                 /** @returns {number} */
@@ -285,69 +291,50 @@
         </script>
     </head>
     <body>
-        <div class="board" name="board1" style="--board-width: 6; --board-height: 6">
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-            <cell></cell>
-        </div>
+        <div id="playground-board" class="board" name="board1" style="--board-width: 3; --board-height: 3"></div>
 
         <script>
-            const BOARD = new Board(".board");
+            const BOARD = new Board("#playground-board");
+            BOARD.reset();
             BOARD.restoreState();
-            setInterval((save) => {
-                BOARD.saveState();
-            }, 1000);
         </script>
 
         <div>
             <p>
+                Thinking of blokus in terms of board states:
+                <ul>
+                    <li>A white square is the default <em>Outer Corner</em></li>
+                    <li>A green square is an <em>Outer Corner</em></li>
+                    <li>An orange square is an <em>Side</em></li>
+                    <li>A blue square is an <em>Interior Piece</em></li>
+                </ul>
 
+                With this in mind, we can redefine the rules in terms of the colors:
+
+                <ul>
+                    <li>Only a green squares can be placed on blue squares</li>
+                    <li>Green and orange can be placed on orange, but the color doesn't change</li>
+                    <li>Blue cannot be placed on orange</li>
+                    <li>orange cannot be placed on blue</li>
+                </ul>
             </p>
         </div>
+    
+        <h2>These rules, as a cellular automata</h2>
+
+        <div class="board" id="auto-board" name="board1" style="--board-width: 12; --board-height: 12"></div>
+
+        <script>
+            const AUTO_BOARD = new Board("#auto-board");
+            AUTO_BOARD.reset();
+            AUTO_BOARD.setPiece(0, 0, "blue");
+            // setInterval(() => {
+            //     const options = AUTO_BOARD.root.querySelectorAll("cell[x-state='green']");
+            //     const nextIndex = Math.round(Math.random() * options.length);
+            //     AUTO_BOARD.select(options.item(nextIndex));
+            //     let {x,y} = AUTO_BOARD.getSelectedCoordinates();
+            //     AUTO_BOARD.setPiece(x,y, "blue");
+            // }, 500);
+        </script>
     </body>
 </html>
