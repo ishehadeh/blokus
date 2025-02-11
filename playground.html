@@ -11,10 +11,9 @@
             
             .board {
                 display: grid;
-                grid-template-columns: repeat(var(--board-width, 6), 1fr);
-                grid-template-rows: repeat(var(--board-height, 6), 1fr);
-                width: 400px;
-                aspect-ratio: 1 / 1;
+                grid-template-columns: repeat(var(--board-width, 6), 4em);
+                grid-template-rows: repeat(var(--board-height, 6), 4em);
+
                 gap: 4px;
                 column-gap: 4px;
             }
@@ -63,6 +62,11 @@
                 "blue", // inner corner
                 "red", // inner
             ]
+            /**
+             * @typedef {{x: number, y: number, color: 'green' | 'orange' | 'blue' | null}[] } Polyomino
+             */
+
+            /** */
             class Board {
                 /** @type {HTMLElement} */
                 #el;
@@ -84,6 +88,14 @@
                 /** @returns {number} */
                 get height() {
                     return +(this.#el.style.getPropertyValue("--board-height") ?? "6")
+                }
+
+                set height(value) {
+                    this.root.style.setProperty("--board-height", `${value}`)
+                }
+
+                set width(value) {
+                    this.root.style.setProperty("--board-width", `${value}`)
                 }
 
                 /** @returns {HTMLElement} */
@@ -187,6 +199,83 @@
                 }
 
                 /** 
+                 * @returns {null | 'orange' | 'blue' | 'green'}
+                 */
+                getCellColor(x, y) {
+                    const xStateAttr = this.getCellElementByPosition(x, y).getAttribute("x-state");
+                    if ([null, 'orange', 'blue', 'green'].includes(xStateAttr)) {
+                        return xStateAttr;
+                    } else {
+                        console.warn(`invalid x-state attribute on cell at <${x}, ${y}>.`);
+                        return null;
+                    }
+                }
+
+                /** 
+                 * @param {number} originX
+                 * @param {number} originY
+                 * @param {Polyomino} polyomino
+                 */
+                tryPlacePolyomino(originX, originY, polyomino) {
+                    let updates = []
+                    for (const piece of polyomino) {
+                        const x = originX + piece.x;
+                        const y = originY + piece.y;
+
+                        const currentColor = this.getCellColor(x, y);
+                        const incomingColor = piece.color;
+                        switch (currentColor) {                                                        
+                            // if the piece is empty then it's always updated to the new color
+                            case null:
+                                updates.push(piece);
+                                break;
+
+                            case "blue":
+                                switch (incomingColor) {
+                                    // legal, but no changes needed
+                                    case "green":
+                                    case null:
+                                        break;
+                                    default:
+                                        return false;
+                                }
+                                break;
+                            
+                            case "green":
+                                switch (incomingColor) {
+                                    // legal, but no changes needed
+                                    case "green":
+                                    case null:
+                                        break;
+                                    case "orange":
+                                    case "blue":
+                                        // orange over powers the other color
+                                        updates.push(piece);
+                                }
+                                break;
+                            case "orange":
+                                switch (incomingColor) {
+                                    case null:
+                                    case "green":
+                                    case "orange":
+                                        break;
+                                    case "blue":
+                                        return false;
+                                }
+                                break;
+                        }
+                    }
+
+                    for (const update of updates) {
+                        const x = originX + piece.x;
+                        const y = originY + piece.y;
+
+                        this.setPiece(x, y, update.color, { sideEffects: false });
+                    }
+                    return true
+                }
+
+                /** 
                  * @param {number} x
                  * @param {number} y
                  * @param {"green"|"orange"|"blue"|"red"} color
@@ -278,6 +367,46 @@
                     localStorage.setItem(`BlokusBoard.${name}`, this.#el.innerHTML);
                 }
 
+                rotate90d() {
+                    // spread here to convert NodeListOf<...> into Array<...>
+                    const cells = this.root.querySelectorAll("cell");
+
+                    // index as: cells2d[y][x]
+                    const cells2d = [];
+
+
+                    for (let y = 0; y < this.height; ++y) {
+                        cells2d.push([])
+                        for (let x = 0; x < this.width; ++x) {
+                            const i = y * this.width + x;
+                            cells2d[cells2d.length - 1].push(cells.item(i))
+                        }
+                    }
+
+                   
+                    const cells2dtr = cells2d[0].map((_)=>Array(cells2d.length));
+                    for (const row in cells2d) {
+                        for(const col in cells2d[row]) {
+                            cells2dtr[col][row] = cells2d[row][col];
+                        }
+                    }
+
+                    const cells2dtrColRev = cells2dtr.map((col) => Array(col.length));
+                    console.log(cells2dtrColRev);
+                    for (const row in cells2dtr) {
+                        for (let col = 0; col < cells2dtr[row].length / 2; ++col) {
+                            cells2dtrColRev[row][cells2dtr[row].length - col - 1] = cells2dtr[row][col];
+                            cells2dtrColRev[row][col] = cells2dtr[row][cells2dtr[row].length - col - 1];
+                        }
+                    }
+
+                    this.root.replaceChildren(...cells2dtrColRev.flat());
+                    const newW = this.height;
+                    const newH = this.width;
+                    this.width = newW;
+                    this.height = newH;
+                }
+
                 restoreState() {
                     const name = this.#el.getAttribute("name", "default");
                     const state = localStorage.getItem(`BlokusBoard.${name}`);
@@ -291,13 +420,47 @@
         </script>
     </head>
     <body>
-        <div id="playground-board" class="board" name="board1" style="--board-width: 3; --board-height: 3"></div>
+        <div id="playground-board" class="board" name="board1" style="--board-width: 8; --board-height: 8"></div>
 
         <script>
             const BOARD = new Board("#playground-board");
             BOARD.reset();
-            BOARD.restoreState();
+            // BOARD.restoreState();
         </script>
+
+
+    <form>
+        <radio id="polyomino-I3" name="polyomino" value="I3"></radio>
+        <label for="polyomino-I3">
+            <div id="i3" class="board" name="board1" style="--board-width: 3; --board-height: 5">
+                <cell x-state="green"></cell>
+                <cell x-state="orange"></cell>
+                <cell x-state="green"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="green"></cell>
+                <cell x-state="orange"></cell>
+                <cell x-state="green"></cell>
+            </div>
+            <script>
+                const polyominoI3 = new Board("#i3");
+                polyominoI3.rotate90d();
+            </script>
+        </label>
+
+
+    </form>
 
         <div>
             <p>
@@ -319,22 +482,6 @@
                 </ul>
             </p>
         </div>
-    
-        <h2>These rules, as a cellular automata</h2>
 
-        <div class="board" id="auto-board" name="board1" style="--board-width: 12; --board-height: 12"></div>
-
-        <script>
-            const AUTO_BOARD = new Board("#auto-board");
-            AUTO_BOARD.reset();
-            AUTO_BOARD.setPiece(0, 0, "blue");
-            // setInterval(() => {
-            //     const options = AUTO_BOARD.root.querySelectorAll("cell[x-state='green']");
-            //     const nextIndex = Math.round(Math.random() * options.length);
-            //     AUTO_BOARD.select(options.item(nextIndex));
-            //     let {x,y} = AUTO_BOARD.getSelectedCoordinates();
-            //     AUTO_BOARD.setPiece(x,y, "blue");
-            // }, 500);
-        </script>
     </body>
 </html>
