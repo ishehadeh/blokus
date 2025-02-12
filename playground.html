@@ -9,7 +9,7 @@
                 font-size: 1.2rem;
             }
             
-            .board {
+            i-blokus {
                 display: grid;
                 grid-template-columns: repeat(var(--board-width, 6), 4em);
                 grid-template-rows: repeat(var(--board-height, 6), 4em);
@@ -18,12 +18,12 @@
                 column-gap: 4px;
             }
 
-            .board > cell {
+            i-blokus > cell {
                 background-color: white;
                 width: 100%;
             }
 
-            .board > cell.selected {
+            i-blokus > cell.selected {
                 outline: 2px solid red;
             }
 
@@ -67,27 +67,61 @@
              */
 
             /** */
-            class Board {
+            class BlokusBoard extends HTMLElement {
                 /** @type {HTMLElement} */
                 #el;
 
-                constructor(selector) {
-                    this.#el = document.querySelector(selector);
-                    this._initEventListeners();
+                /** @type {HTMLElement[]} */
+                #cellNodes = [];
+                #observer;
+
+                #onClickHandler;
+                #keyDownHandler
+
+                constructor() {
+                    super();
+                    this.#el = this;
+                    this.#onClickHandler = (ev) => { this._cellClickedHandler(ev); }
+                    this.#keyDownHandler = (ev) => { this._keydownEventHandler(ev); }
+
+                    this.#observer = new MutationObserver((mutations) => {
+                        // Traverse every mutation
+                        mutations.forEach((mutation) => {
+                            for (var i = 0; i < mutation.addedNodes.length; i++) {
+                                this.addEventListener("click", this.#onClickHandler);
+                            }
+                            const nodeCount = this.root.querySelectorAll("cell").length;
+                            if (nodeCount < this.width * this.height) {
+                                this.innerHTML += "<cell></cell>".repeat(this.width * this.height - nodeCount)
+                            }
+                        });    
+                    });
+    
+                }
+                connectedCallback() {
+                    window.addEventListener("keydown", this.#keyDownHandler, true);
+                    this.#observer.observe(this,  { attributes: false, childList: true, characterData: false,  subtree: false})
+                }
+
+                disconnectedCallback() {
+                    for (const child of this.root.assignedElements()) {
+                        child.removeEventListener("click", this.#onClickHandler);
+                    }
+                    window.removeEventListener("keydown", this.#keyDownHandler, true);
                 }
 
                 get root() {
-                    return this.#el
+                    return this;
                 }
 
                 /** @returns {number} */
                 get width() {
-                    return +(this.#el.style.getPropertyValue("--board-width") ?? "6")
+                    return +(this.root.style.getPropertyValue("--board-width") ?? "6")
                 }
 
                 /** @returns {number} */
                 get height() {
-                    return +(this.#el.style.getPropertyValue("--board-height") ?? "6")
+                    return +(this.root.style.getPropertyValue("--board-height") ?? "6")
                 }
 
                 set height(value) {
@@ -100,13 +134,25 @@
 
                 /** @returns {HTMLElement} */
                 selected() {
-                    return this.#el.querySelector(".selected");
+                    return this.root.querySelector(".selected");
+                }
+
+                toJSON() {
+                    /** @type {Polyomino} */
+                    let polyominos = []
+                    for (let x = 0; x < this.width; ++x) {
+                        for (let y = 0; y < this.height; ++y) {
+                            const color = this.getCellColor(x, y);
+                            polyominos.push({ x, y, color });
+                        }
+                    }
+                    return polyominos;
                 }
 
                 /** @returns {{x: number, y: number}} */
                 getSelectedCoordinates() {
                     const selectedCell = this.selected();
-                    const cells = this.#el.getElementsByTagName("cell");
+                    const cells = this.root.getElementsByTagName("cell");
                     const w = this.width;
                     const h = this.height;
                     for(let x = 0; x < w; ++x) {
@@ -124,14 +170,14 @@
                  * @returns {void}
                  */
                 select(elOrQuerySelector) {
-                    this.#el
+                    this.root
                         .querySelectorAll(".selected")
                         .forEach((v) => v.classList.remove("selected"));
 
                     /** @type {HTMLElement} */
                     let el;
                     if (typeof elOrQuerySelector === "string") { 
-                        el = this.#el.querySelector(querySelector);
+                        el = this.root.querySelector(querySelector);
                     } else if (elOrQuerySelector instanceof HTMLElement) {
                         el = elOrQuerySelector;
                     } else {
@@ -154,11 +200,12 @@
                  * @returns {HTMLElement}
                  */
                 getCellElementByPosition(x, y) {
+                    console.log(x, y)
                     if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
                         return null;
                     }
 
-                    const cells = this.#el.getElementsByTagName("cell");
+                    const cells = this.root.getElementsByTagName("cell");
                     return cells.item(y * this.width + x);
                 }
 
@@ -199,10 +246,13 @@
                 }
 
                 /** 
-                 * @returns {null | 'orange' | 'blue' | 'green'}
+                 * @returns {undefined | null | 'orange' | 'blue' | 'green'}
                  */
                 getCellColor(x, y) {
-                    const xStateAttr = this.getCellElementByPosition(x, y).getAttribute("x-state");
+                    const cell = this.getCellElementByPosition(x, y);
+                    if (!cell) return undefined;
+
+                    const xStateAttr = cell.getAttribute("x-state");
                     if ([null, 'orange', 'blue', 'green'].includes(xStateAttr)) {
                         return xStateAttr;
                     } else {
@@ -223,6 +273,9 @@
                         const y = originY + piece.y;
 
                         const currentColor = this.getCellColor(x, y);
+                        if (currentColor === undefined) {
+                            continue;
+                        }
                         const incomingColor = piece.color;
                         switch (currentColor) {                                                        
                             // if the piece is empty then it's always updated to the new color
@@ -267,8 +320,8 @@
                     }
 
                     for (const update of updates) {
-                        const x = originX + piece.x;
-                        const y = originY + piece.y;
+                        const x = originX + update.x;
+                        const y = originY + update.y;
 
                         this.setPiece(x, y, update.color, { sideEffects: false });
                     }
@@ -301,11 +354,6 @@
                     }
                 }
 
-                reset() {
-                    this.#el.innerHTML = "<cell></cell>".repeat(this.width * this.height);
-                    this._initEventListeners();
-                }
-
                 /**
                  * @param {KeyboardEvent} ev
                  */
@@ -334,7 +382,12 @@
                 }
 
                 _initEventListeners() {
-                    this.#el
+                    const numCells = this.root.querySelectorAll("cell").length;
+                    for (let i = numCells; i < this.width * this.height; ++i) {
+                        this.root.appendChild(document.createElement("cell"))
+                    }
+
+                    this.root
                         .querySelectorAll("cell")
                         .forEach((cell) => {
                             cell["bk_eventListener:click"] = (ev) => this._cellClickedHandler(ev);
@@ -346,25 +399,10 @@
 
                 }
 
-                _deinitEventListeners() {
-                    this.#el
-                        .querySelectorAll("cell")
-                        .forEach((cell) => {
-                            if ("bk_eventListener" in cell) {
-                                delete cell["bk_eventListener:click"];
-                                cell.removeEventListener("click", cell["bk_eventListener:click"]);
-                            }
-                        });
-                        
-                    if ("bk_eventListener:keydown" in this.#el) {
-                        delete this.#el["bk_eventListener:keydown"];
-                        this.#el.removeEventListener("keypress", this.#el["bk_eventListener:keydown"]);
-                    }
-                }
 
                 saveState() {
-                    const name = this.#el.getAttribute("name", "default");
-                    localStorage.setItem(`BlokusBoard.${name}`, this.#el.innerHTML);
+                    const name = this.root.getAttribute("name", "default");
+                    localStorage.setItem(`BlokusBoard.${name}`, this.root.innerHTML);
                 }
 
                 rotate90d() {
@@ -408,60 +446,61 @@
                 }
 
                 restoreState() {
-                    const name = this.#el.getAttribute("name", "default");
+                    const name = this.root.getAttribute("name", "default");
                     const state = localStorage.getItem(`BlokusBoard.${name}`);
                     if (state != null) {
                         this._deinitEventListeners();
-                        this.#el.innerHTML = state;
+                        this.root.innerHTML = state;
                         this._initEventListeners();
                     }
                 }
             }
+
+            customElements.define("i-blokus", BlokusBoard);
         </script>
     </head>
     <body>
-        <div id="playground-board" class="board" name="board1" style="--board-width: 8; --board-height: 8"></div>
-
-        <script>
-            const BOARD = new Board("#playground-board");
-            BOARD.reset();
-            // BOARD.restoreState();
-        </script>
+        <i-blokus id="playground-board" style="--board-width: 8; --board-height: 8">
+            <cell></cell>
+        </i-blokus>
 
 
-    <form>
-        <radio id="polyomino-I3" name="polyomino" value="I3"></radio>
-        <label for="polyomino-I3">
-            <div id="i3" class="board" name="board1" style="--board-width: 3; --board-height: 5">
-                <cell x-state="green"></cell>
-                <cell x-state="orange"></cell>
-                <cell x-state="green"></cell>
-
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
-
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
-
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
-
-                <cell x-state="green"></cell>
-                <cell x-state="orange"></cell>
-                <cell x-state="green"></cell>
+        <div>
+            <div>
+                <h1>Polyomino to Place</h1>
+                <button onclick="document.getElementById('i3').rotate90d()">Rotate 90 deg</button>
             </div>
+            <i-blokus id="i3"  style="--board-width: 3; --board-height: 5">
+                <cell x-state="green"></cell>
+                <cell x-state="orange"></cell>
+                <cell x-state="green"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="orange"></cell>
+                <cell x-state="blue"></cell>
+                <cell x-state="orange"></cell>
+
+                <cell x-state="green"></cell>
+                <cell x-state="orange"></cell>
+                <cell x-state="green"></cell>
+            </i-blokus>
             <script>
-                const polyominoI3 = new Board("#i3");
-                polyominoI3.rotate90d();
+                const i3 = document.getElementById("i3");
+                const mainBoard = document.getElementById("playground-board");
+                window.addEventListener("keydown", (ev) => {
+                    if (ev.key == "p") {
+                        const {x, y} = mainBoard.getSelectedCoordinates();
+                        mainBoard.tryPlacePolyomino(x, y, i3.toJSON());
+                    }  
+                })
             </script>
-        </label>
-
-
-    </form>
-
         <div>
             <p>
                 Thinking of blokus in terms of board states:
