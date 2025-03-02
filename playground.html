@@ -1,15 +1,44 @@
 <!DOCTYPE html>
 <html>
-    <head>
 
+<head>
+
+    <style>
+        body {
+            background-color: #0f0f0f;
+            color: #efefef;
+            font-size: 1.2rem;
+        }
+
+        i-cell {
+            background-color: white;
+            width: 100%;
+        }
+
+        i-cell.selected {
+            outline: 2px solid red;
+        }
+
+        i-cell[x-state="green"] {
+            background-color: green;
+        }
+
+        i-cell[x-state="orange"] {
+            background-color: orange;
+        }
+
+        i-cell[x-state="blue"] {
+            background-color: blue;
+        }
+
+        i-cell[x-state="red"] {
+            background-color: red;
+        }
+    </style>
+
+    <template id="tmpl-board">
         <style>
-            body {
-                background-color: #0f0f0f;
-                color: #efefef;
-                font-size: 1.2rem;
-            }
-            
-            i-blokus {
+            #board {
                 display: grid;
                 grid-template-columns: repeat(var(--board-width, 6), 4em);
                 grid-template-rows: repeat(var(--board-height, 6), 4em);
@@ -17,510 +46,617 @@
                 gap: 4px;
                 column-gap: 4px;
             }
-
-            i-blokus > cell {
-                background-color: white;
-                width: 100%;
-            }
-
-            i-blokus > cell.selected {
-                outline: 2px solid red;
-            }
-
-            /** Outher corner:
-                - recieves green, orange
-                - can be placed on green
-             */
-             cell[x-state="green"]  { background-color: green; }
-            /** Orange is a side piece
-                Recieves:
-                    - orange
-                    - green
-            **/
-            cell[x-state="orange"] { background-color: orange; }
-            /** Blue is interior corner
-                - It recieves green, but nothing else
-            **/
-            cell[x-state="blue"]    { background-color: blue; }
-
-            /** interior, recieves none **/
-            cell[x-state="red"]    { background-color: red; }
-            /**
-            So, white -> green,orange,blue,red
-                green -> green
-                      -> orange
-                orange -> orange
-                       -> green
-                blue -> green
-                red ->
-            */
         </style>
-        <script>
-            const CELL_STATES = [
-                "green", // outer corner
-                "orange", // side
-                "blue", // inner corner
-                "red", // inner
-            ]
+        <div id="board">
+            <slot></slot>
+        </div>
+    </template>
+    <script>
+        const CELL_STATES = [
+            "green", // outer corner
+            "orange", // side
+            "blue", // inner corner
+            "red", // inner
+        ]
+        /**
+         * @typedef {{x: number, y: number, color: 'green' | 'orange' | 'blue' | null}[] } Polyomino
+         */
+
+        /** */
+        class BlokusBoard extends HTMLElement {
+            static observedAttributes = ["x-width", "x-height"];
+            /** @type {HTMLElement} */
+            #el;
+
+            /** @type {HTMLElement[]} */
+            #cellNodes = [];
+            #observer;
+
+            #onClickHandler;
+            #keyDownHandler;
+
+            #polyominoGroup = null;
+
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.shadowRoot.appendChild(document.getElementById("tmpl-board").content.cloneNode(true));
+                this.#el = this.shadowRoot.getElementById("board");
+                this.shadowRoot.querySelector("slot").addEventListener("slotchange", (ev) => {
+                    const nodeCount = this.root.querySelectorAll("i-cell").length;
+                    if (nodeCount < this.width * this.height) {
+                        this.innerHTML += "<i-cell></i-cell>".repeat(this.width * this.height - nodeCount)
+                    }
+                    for (const el of this.root.querySelectorAll("i-cell")) {
+                        el.addEventListener("click", this.#onClickHandler);
+                    }
+                });
+
+
+                this.#onClickHandler = (ev) => { this._cellClickedHandler(ev); }
+                this.#keyDownHandler = (ev) => { this._keydownEventHandler(ev); }
+
+                // this.#observer = new MutationObserver((mutations) => {
+                //     mutations.forEach((mutation) => {
+                //         for (var i = 0; i < mutation.addedNodes.length; i++) {
+                //             this.addEventListener("click", this.#onClickHandler);
+                //         }
+                //         const nodeCount = this.root.querySelectorAll("i-cell").length;
+                //         if (nodeCount < this.width * this.height) {
+                //             this.innerHTML += "<i-cell></i-cell>".repeat(this.width * this.height - nodeCount)
+                //         }
+                //     });
+                // });
+            }
+
+
+
+            connectedCallback() {
+                this.tabIndex = -1; // needed for keydown event
+                this.addEventListener("keydown", this.#keyDownHandler, true);
+                this.#observer.observe(this.#el, { attributes: false, childList: true, characterData: false, subtree: false })
+            }
+
+            disconnectedCallback() {
+                for (const child of this.root.assignedElements()) {
+                    child.removeEventListener("click", this.#onClickHandler);
+                }
+                this.removeEventListener("keydown", this.#keyDownHandler, true);
+            }
+
+            get root() {
+                return this;
+            }
+
+            /** @returns {number} */
+            get width() {
+                return +(this.root.style.getPropertyValue("--board-width") ?? "6")
+            }
+
+            /** @returns {number} */
+            get height() {
+                return +(this.root.style.getPropertyValue("--board-height") ?? "6")
+            }
+
+            set height(value) {
+                this.root.style.setProperty("--board-height", `${value}`)
+            }
+
+            set width(value) {
+                this.root.style.setProperty("--board-width", `${value}`)
+            }
+
+            /** @returns {HTMLElement} */
+            selected() {
+                return this.root.querySelector(".selected");
+            }
+
+            toJSON() {
+                /** @type {Polyomino} */
+                let polyomino = []
+                for (let x = 0; x < this.width; ++x) {
+                    for (let y = 0; y < this.height; ++y) {
+                        const color = this.getCellColor(x, y);
+                        polyomino.push({ x, y, color });
+                    }
+                }
+                return polyomino;
+            }
+
+            /** @returns {{x: number, y: number}|null} */
+            getSelectedCoordinates() {
+                const selectedCell = this.selected();
+                const cells = this.root.getElementsByTagName("i-cell");
+                const w = this.width;
+                const h = this.height;
+                for (let x = 0; x < w; ++x) {
+                    for (let y = 0; y < h; ++y) {
+                        if (cells.item(x + y * w) == selectedCell) {
+                            return { x, y }
+                        }
+                    }
+                }
+                return null;
+            }
+
             /**
-             * @typedef {{x: number, y: number, color: 'green' | 'orange' | 'blue' | null}[] } Polyomino
+             * @param {string|HTMLElement} elOrQuerySelector
+             * @returns {void}
              */
+            select(elOrQuerySelector) {
+                this.root
+                    .querySelectorAll(".selected")
+                    .forEach((v) => v.classList.remove("selected"));
 
-            /** */
-            class BlokusBoard extends HTMLElement {
                 /** @type {HTMLElement} */
-                #el;
-
-                /** @type {HTMLElement[]} */
-                #cellNodes = [];
-                #observer;
-
-                #onClickHandler;
-                #keyDownHandler
-
-                constructor() {
-                    super();
-                    this.#el = this;
-                    this.#onClickHandler = (ev) => { this._cellClickedHandler(ev); }
-                    this.#keyDownHandler = (ev) => { this._keydownEventHandler(ev); }
-
-                    this.#observer = new MutationObserver((mutations) => {
-                        // Traverse every mutation
-                        mutations.forEach((mutation) => {
-                            for (var i = 0; i < mutation.addedNodes.length; i++) {
-                                this.addEventListener("click", this.#onClickHandler);
-                            }
-                            const nodeCount = this.root.querySelectorAll("cell").length;
-                            if (nodeCount < this.width * this.height) {
-                                this.innerHTML += "<cell></cell>".repeat(this.width * this.height - nodeCount)
-                            }
-                        });    
-                    });
-    
+                let el;
+                if (typeof elOrQuerySelector === "string") {
+                    el = this.root.querySelector(querySelector);
+                } else if (elOrQuerySelector instanceof HTMLElement) {
+                    el = elOrQuerySelector;
+                } else {
+                    throw new TypeError(`expected string or HTMLElement, got ${elOrQuerySelector}`);
                 }
-                connectedCallback() {
-                    window.addEventListener("keydown", this.#keyDownHandler, true);
-                    this.#observer.observe(this,  { attributes: false, childList: true, characterData: false,  subtree: false})
-                }
+                el.classList.add("selected");
+                this.dispatchEvent(new Event("x-cell-selected", { coordinates: this.getSelectedCoordinates(), cell: el }));
+            }
 
-                disconnectedCallback() {
-                    for (const child of this.root.assignedElements()) {
-                        child.removeEventListener("click", this.#onClickHandler);
-                    }
-                    window.removeEventListener("keydown", this.#keyDownHandler, true);
-                }
+            deselect() {
+                this.#el
+                    .querySelectorAll(".selected")
+                    .forEach((v) => v.classList.remove("selected"));
+            }
 
-                get root() {
-                    return this;
-                }
+            /** 
+             * @param {PointerEvent} ev
+             * @returns {void}
+             */
+            _cellClickedHandler(ev) {
+                this.select(ev.target);
+            }
 
-                /** @returns {number} */
-                get width() {
-                    return +(this.root.style.getPropertyValue("--board-width") ?? "6")
-                }
-
-                /** @returns {number} */
-                get height() {
-                    return +(this.root.style.getPropertyValue("--board-height") ?? "6")
-                }
-
-                set height(value) {
-                    this.root.style.setProperty("--board-height", `${value}`)
-                }
-
-                set width(value) {
-                    this.root.style.setProperty("--board-width", `${value}`)
-                }
-
-                /** @returns {HTMLElement} */
-                selected() {
-                    return this.root.querySelector(".selected");
-                }
-
-                toJSON() {
-                    /** @type {Polyomino} */
-                    let polyominos = []
-                    for (let x = 0; x < this.width; ++x) {
-                        for (let y = 0; y < this.height; ++y) {
-                            const color = this.getCellColor(x, y);
-                            polyominos.push({ x, y, color });
-                        }
-                    }
-                    return polyominos;
-                }
-
-                /** @returns {{x: number, y: number}} */
-                getSelectedCoordinates() {
-                    const selectedCell = this.selected();
-                    const cells = this.root.getElementsByTagName("cell");
-                    const w = this.width;
-                    const h = this.height;
-                    for(let x = 0; x < w; ++x) {
-                        for (let y = 0; y < h; ++y) {
-                            if (cells.item(x + y * w) == selectedCell) {
-                                return { x, y }
-                            }
-                        }
-                    }
+            /**
+             * @param {number} x The column index (zero-based)
+             * @param {number} y The row index (zero-based)
+             * @returns {HTMLElement}
+             */
+            getCellElementByPosition(x, y) {
+                console.log(x, y)
+                if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
                     return null;
                 }
 
-                /**
-                 * @param {string|HTMLElement} elOrQuerySelector
-                 * @returns {void}
-                 */
-                select(elOrQuerySelector) {
-                    this.root
-                        .querySelectorAll(".selected")
-                        .forEach((v) => v.classList.remove("selected"));
+                const cells = this.root.getElementsByTagName("i-cell");
+                return cells.item(y * this.width + x);
+            }
 
-                    /** @type {HTMLElement} */
-                    let el;
-                    if (typeof elOrQuerySelector === "string") { 
-                        el = this.root.querySelector(querySelector);
-                    } else if (elOrQuerySelector instanceof HTMLElement) {
-                        el = elOrQuerySelector;
-                    } else {
-                        throw new TypeError(`expected string or HTMLElement, got ${elOrQuerySelector}`);
-                    }
-                    el.classList.add("selected");
-                }
-                
-                /** 
-                 * @param {PointerEvent} ev
-                 * @returns {void}
-                 */
-                _cellClickedHandler(ev) {
-                    this.select(ev.target);
-                }
-
-                /**
-                 * @param {number} x The column index (zero-based)
-                 * @param {number} y The row index (zero-based)
-                 * @returns {HTMLElement}
-                 */
-                getCellElementByPosition(x, y) {
-                    console.log(x, y)
-                    if (x < 0 || y < 0 || x >= this.width || y >= this.height) {
-                        return null;
-                    }
-
-                    const cells = this.root.getElementsByTagName("cell");
-                    return cells.item(y * this.width + x);
-                }
-
-                /** 
-                 * @param {number} x
-                 * @param {number} y
-                 * @param {"green"|"orange"|"blue"|"red"|null} color
-                 */
-                setPiece(x, y, color, config = { sideEffects: true }) {
-                    const cell = this.getCellElementByPosition(x, y);
-                    switch (color) {
-                        case null:
-                            cell.removeAttribute("x-state");
-                            break;
-                        case "blue":
-                            cell.setAttribute("x-state", "blue");
-                            if (config.sideEffects) {
-                                this.trySetPieceColor(x - 1, y, "orange");
-                                this.trySetPieceColor(x + 1, y, "orange");
-                                this.trySetPieceColor(x, y - 1, "orange");
-                                this.trySetPieceColor(x, y + 1, "orange");
-                                this.trySetPieceColor(x - 1, y - 1, "green");
-                                this.trySetPieceColor(x - 1, y + 1, "green");
-                                this.trySetPieceColor(x + 1, y - 1, "green");
-                                this.trySetPieceColor(x + 1, y + 1, "green");
-                            }
-                            break;
-                        case "green":
-                            cell.setAttribute("x-state", "green");
-                            break;
-                        case "orange":
-                            cell.setAttribute("x-state", "orange");
-                            break;
-                        case "red":
-                            cell.setAttribute("x-state", "red");
-                            break;
-                    }
-                }
-
-                /** 
-                 * @returns {undefined | null | 'orange' | 'blue' | 'green'}
-                 */
-                getCellColor(x, y) {
-                    const cell = this.getCellElementByPosition(x, y);
-                    if (!cell) return undefined;
-
-                    const xStateAttr = cell.getAttribute("x-state");
-                    if ([null, 'orange', 'blue', 'green'].includes(xStateAttr)) {
-                        return xStateAttr;
-                    } else {
-                        console.warn(`invalid x-state attribute on cell at <${x}, ${y}>.`);
-                        return null;
-                    }
-                }
-
-                /** 
-                 * @param {number} originX
-                 * @param {number} originY
-                 * @param {Polyomino} polyomino
-                 */
-                tryPlacePolyomino(originX, originY, polyomino) {
-                    let updates = []
-                    for (const piece of polyomino) {
-                        const x = originX + piece.x;
-                        const y = originY + piece.y;
-
-                        const currentColor = this.getCellColor(x, y);
-                        if (currentColor === undefined) {
-                            continue;
+            /** 
+             * @param {number} x
+             * @param {number} y
+             * @param {"green"|"orange"|"blue"|"red"|null} color
+             */
+            setPiece(x, y, color, config = { sideEffects: true }) {
+                const cell = this.getCellElementByPosition(x, y);
+                switch (color) {
+                    case null:
+                        cell.removeAttribute("x-state");
+                        break;
+                    case "blue":
+                        cell.setAttribute("x-state", "blue");
+                        if (config.sideEffects) {
+                            this.trySetPieceColor(x - 1, y, "orange");
+                            this.trySetPieceColor(x + 1, y, "orange");
+                            this.trySetPieceColor(x, y - 1, "orange");
+                            this.trySetPieceColor(x, y + 1, "orange");
+                            this.trySetPieceColor(x - 1, y - 1, "green");
+                            this.trySetPieceColor(x - 1, y + 1, "green");
+                            this.trySetPieceColor(x + 1, y - 1, "green");
+                            this.trySetPieceColor(x + 1, y + 1, "green");
                         }
-                        const incomingColor = piece.color;
-                        switch (currentColor) {                                                        
-                            // if the piece is empty then it's always updated to the new color
-                            case null:
-                                updates.push(piece);
-                                break;
-
-                            case "blue":
-                                switch (incomingColor) {
-                                    // legal, but no changes needed
-                                    case "green":
-                                    case null:
-                                        break;
-                                    default:
-                                        return false;
-                                }
-                                break;
-                            
-                            case "green":
-                                switch (incomingColor) {
-                                    // legal, but no changes needed
-                                    case "green":
-                                    case null:
-                                        break;
-                                    case "orange":
-                                    case "blue":
-                                        // orange over powers the other color
-                                        updates.push(piece);
-                                }
-                                break;
-                            case "orange":
-                                switch (incomingColor) {
-                                    case null:
-                                    case "green":
-                                    case "orange":
-                                        break;
-                                    case "blue":
-                                        return false;
-                                }
-                                break;
-                        }
-                    }
-
-                    for (const update of updates) {
-                        const x = originX + update.x;
-                        const y = originY + update.y;
-
-                        this.setPiece(x, y, update.color, { sideEffects: false });
-                    }
-                    return true
+                        break;
+                    case "green":
+                        cell.setAttribute("x-state", "green");
+                        break;
+                    case "orange":
+                        cell.setAttribute("x-state", "orange");
+                        break;
+                    case "red":
+                        cell.setAttribute("x-state", "red");
+                        break;
                 }
+            }
 
-                /** 
-                 * @param {number} x
-                 * @param {number} y
-                 * @param {"green"|"orange"|"blue"|"red"} color
-                 */
-                trySetPieceColor(x, y, color) {
-                    const cell = this.getCellElementByPosition(x, y);
-                    if (cell === null) return;
+            attributeChangedCallback(attr, oldValue, newValue) {
+                switch (attr) {
+                    case "x-width":
+                        this.width = +(newValue ?? "6");
+                        break;
+                    case "x-height":
+                        this.height = +(newValue ?? "6");
+                        break;
+                    case "x-place-from":
+                        this.#polyominoGroup = newValue;
+                        break;
+                }
+            }
 
-                    const currentColor = cell.getAttribute("x-state");
+            /** 
+             * @returns {undefined | null | 'orange' | 'blue' | 'green'}
+             */
+            getCellColor(x, y) {
+                const cell = this.getCellElementByPosition(x, y);
+                if (!cell) return undefined;
+
+                const xStateAttr = cell.getAttribute("x-state");
+                if ([null, 'orange', 'blue', 'green'].includes(xStateAttr)) {
+                    return xStateAttr;
+                } else {
+                    console.warn(`invalid x-state attribute on cell at <${x}, ${y}>.`);
+                    return null;
+                }
+            }
+
+            /** 
+             * @param {number} originX
+             * @param {number} originY
+             * @param {Polyomino} polyomino
+             * @param {number} polyominoX
+             * @param {number} polyominoY
+             */
+            tryPlacePolyomino(originX, originY, polyomino, polyominoX = 0, polyominoY = 0) {
+                let updates = []
+                for (const piece of polyomino) {
+                    const x = originX + piece.x - polyominoX;
+                    const y = originY + piece.y - polyominoY;
+
+                    const currentColor = this.getCellColor(x, y);
+                    if (currentColor === undefined) {
+                        continue;
+                    }
+                    const incomingColor = piece.color;
                     switch (currentColor) {
+                        // if the piece is empty then it's always updated to the new color
                         case null:
-                        case "green":
-                        case "red":
-                            cell.setAttribute("x-state", color);
+                            updates.push(piece);
                             break;
+                        case "red":
+                            break;
+
                         case "blue":
+                            switch (incomingColor) {
+                                // legal, but no changes needed
+                                case "green":
+                                case null:
+                                    break;
+                                default:
+                                    return false;
+                            }
+                            break;
+
+                        case "green":
+                            switch (incomingColor) {
+                                // legal, but no changes needed
+                                case "green":
+                                case null:
+                                    break;
+                                case "orange":
+                                case "blue":
+                                    // orange over powers the other color
+                                    updates.push(piece);
+                            }
                             break;
                         case "orange":
-                            if (["red", "blue"].includes(color)) {
-                                cell.setAttribute("x-state", color);
+                            switch (incomingColor) {
+                                case null:
+                                case "green":
+                                case "orange":
+                                    break;
+                                case "blue":
+                                    return false;
                             }
                             break;
                     }
                 }
 
-                /**
-                 * @param {KeyboardEvent} ev
-                 */
-                _keydownEventHandler(ev) {
-                    if (this.selected() != null) {
-                        const { x, y } = this.getSelectedCoordinates();
+                for (const update of updates) {
+                    const x = originX + update.x - polyominoX;
+                    const y = originY + update.y - polyominoY;
 
-                        switch (ev.key) {
-                            case "0":
-                                this.setPiece(x, y, null);
-                                break;
-                            case "1":
-                                this.setPiece(x, y, "green");
-                                break;
-                            case "2":
-                                this.setPiece(x, y, "orange");
-                                break;
-                            case "3":
-                                this.setPiece(x, y, "blue");
-                                break;
-                            case "4":
-                                this.setPiece(x, y, "red");
-                                break;
-                        }
-                    }
+                    this.setPiece(x, y, update.color, { sideEffects: false });
                 }
+                return true
+            }
 
-                _initEventListeners() {
-                    const numCells = this.root.querySelectorAll("cell").length;
-                    for (let i = numCells; i < this.width * this.height; ++i) {
-                        this.root.appendChild(document.createElement("cell"))
-                    }
+            /** 
+             * @param {number} x
+             * @param {number} y
+             * @param {"green"|"orange"|"blue"|"red"} color
+             */
+            trySetPieceColor(x, y, color) {
+                const cell = this.getCellElementByPosition(x, y);
+                if (cell === null) return;
 
-                    this.root
-                        .querySelectorAll("cell")
-                        .forEach((cell) => {
-                            cell["bk_eventListener:click"] = (ev) => this._cellClickedHandler(ev);
-                            cell.addEventListener("click", cell["bk_eventListener:click"]);
-                        });
-                    
-                    document.body["bk_eventListener:keydown"] = (ev) => this._keydownEventHandler(ev)
-                    document.body.addEventListener("keypress", document.body["bk_eventListener:keydown"]);
-
-                }
-
-
-                saveState() {
-                    const name = this.root.getAttribute("name", "default");
-                    localStorage.setItem(`BlokusBoard.${name}`, this.root.innerHTML);
-                }
-
-                rotate90d() {
-                    // spread here to convert NodeListOf<...> into Array<...>
-                    const cells = this.root.querySelectorAll("cell");
-
-                    // index as: cells2d[y][x]
-                    const cells2d = [];
-
-
-                    for (let y = 0; y < this.height; ++y) {
-                        cells2d.push([])
-                        for (let x = 0; x < this.width; ++x) {
-                            const i = y * this.width + x;
-                            cells2d[cells2d.length - 1].push(cells.item(i))
+                const currentColor = cell.getAttribute("x-state");
+                switch (currentColor) {
+                    case null:
+                    case "green":
+                        cell.setAttribute("x-state", color);
+                    case "red":
+                        break;
+                    case "blue":
+                        break;
+                    case "orange":
+                        if (["red", "blue"].includes(color)) {
+                            cell.setAttribute("x-state", color);
                         }
-                    }
-
-                   
-                    const cells2dtr = cells2d[0].map((_)=>Array(cells2d.length));
-                    for (const row in cells2d) {
-                        for(const col in cells2d[row]) {
-                            cells2dtr[col][row] = cells2d[row][col];
-                        }
-                    }
-
-                    const cells2dtrColRev = cells2dtr.map((col) => Array(col.length));
-                    console.log(cells2dtrColRev);
-                    for (const row in cells2dtr) {
-                        for (let col = 0; col < cells2dtr[row].length / 2; ++col) {
-                            cells2dtrColRev[row][cells2dtr[row].length - col - 1] = cells2dtr[row][col];
-                            cells2dtrColRev[row][col] = cells2dtr[row][cells2dtr[row].length - col - 1];
-                        }
-                    }
-
-                    this.root.replaceChildren(...cells2dtrColRev.flat());
-                    const newW = this.height;
-                    const newH = this.width;
-                    this.width = newW;
-                    this.height = newH;
+                        break;
                 }
+            }
 
-                restoreState() {
-                    const name = this.root.getAttribute("name", "default");
-                    const state = localStorage.getItem(`BlokusBoard.${name}`);
-                    if (state != null) {
-                        this._deinitEventListeners();
-                        this.root.innerHTML = state;
-                        this._initEventListeners();
+            /**
+             * @param {KeyboardEvent} ev
+             */
+            _keydownEventHandler(ev) {
+                if (this.selected() != null) {
+                    const { x, y } = this.getSelectedCoordinates();
+
+                    switch (ev.key) {
+                        case "0":
+                            this.setPiece(x, y, null);
+                            break;
+                        case "1":
+                            this.setPiece(x, y, "green");
+                            break;
+                        case "2":
+                            this.setPiece(x, y, "orange");
+                            break;
+                        case "3":
+                            this.setPiece(x, y, "blue");
+                            break;
+                        case "4":
+                            this.setPiece(x, y, "red");
+                            break;
                     }
                 }
             }
 
-            customElements.define("i-blokus", BlokusBoard);
-        </script>
-    </head>
-    <body>
-        <i-blokus id="playground-board" style="--board-width: 8; --board-height: 8">
-            <cell></cell>
+
+            saveState() {
+                const name = this.root.getAttribute("name", "default");
+                localStorage.setItem(`BlokusBoard.${name}`, this.root.innerHTML);
+            }
+
+            rotate90d() {
+                const cells = this.shadowRoot.querySelector("slot").assignedElements();
+                console.log(cells);
+                // index as: cells2d[y][x]
+                const cells2d = [];
+
+
+                for (let y = 0; y < this.height; ++y) {
+                    cells2d.push([])
+                    for (let x = 0; x < this.width; ++x) {
+                        const i = y * this.width + x;
+                        cells2d[cells2d.length - 1].push(cells[i])
+                    }
+                }
+
+
+                const cells2dtr = cells2d[0].map((_) => Array(cells2d.length));
+                for (const row in cells2d) {
+                    for (const col in cells2d[row]) {
+                        cells2dtr[col][row] = cells2d[row][col];
+                    }
+                }
+
+                const cells2dtrColRev = cells2dtr.map((col) => Array(col.length));
+                console.log(cells2dtrColRev);
+                for (const row in cells2dtr) {
+                    for (let col = 0; col < cells2dtr[row].length / 2; ++col) {
+                        cells2dtrColRev[row][cells2dtr[row].length - col - 1] = cells2dtr[row][col];
+                        cells2dtrColRev[row][col] = cells2dtr[row][cells2dtr[row].length - col - 1];
+                    }
+                }
+
+                this.root.replaceChildren(...cells2dtrColRev.flat());
+                const newW = this.height;
+                const newH = this.width;
+                this.setAttribute("x-width", newW);
+                this.setAttribute("x-height", newH);
+            }
+
+            restoreState() {
+                const name = this.root.getAttribute("name", "default");
+                const state = localStorage.getItem(`BlokusBoard.${name}`);
+                if (state != null) {
+                    this.root.innerHTML = state;
+                }
+            }
+        }
+
+        customElements.define("i-blokus", BlokusBoard);
+    </script>
+
+    <template id="templ-polyomino" shadowrootmode="open">
+        <div style="width: 100%;height:100%">
+            <button id="btn-rotate">Rotate Clickwise</button>
+        </div>
+    </template>
+
+    <script>
+        class PolyominoElement extends HTMLElement {
+            static observedAttributes = ["polyomino-group", "x-board"];
+            /** @type {string} */
+            #polyominoGroup;
+
+            /** @type {HTMLElement | null} */
+            #board = null;
+
+            get board() {
+                return this.#board
+            }
+
+            get rotateButton() {
+                return this.shadowRoot.querySelector("#btn-rotate");
+            }
+
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.shadowRoot.appendChild(document.getElementById("templ-polyomino").content.cloneNode(true));
+                this.#polyominoGroup = this.getAttribute("polyomino-group") ?? "";
+            }
+
+            connectedCallback() {
+                this.rotateButton.addEventListener("click", (click) => {
+                    this.board.rotate90d();
+                });
+                this.board.addEventListener("x-cell-selected", (ev) => {
+                    document
+                        .querySelectorAll(`i-polyomino[polyomino-group='${this.polyominoGroup}']`)
+                        .forEach(el => {
+                            if (el != this) {
+                                el.board.deselect();
+                            }
+                        })
+                });
+            }
+
+            attributeChangedCallback(attr, oldValue, newValue) {
+                switch (attr) {
+                    case "polyomino-group":
+                        this.#polyominoGroup = newValue;
+                        break;
+                    case "x-board":
+                        this.#board = document.querySelector(newValue);
+                }
+            }
+
+        }
+
+        customElements.define("i-polyomino", PolyominoElement);
+
+        class BoardCell extends HTMLElement {
+            constructor() {
+                super()
+            }
+        }
+        // customElements.define("i-cell", BoardCell);
+    </script>
+</head>
+
+<body>
+    <div style="margin:2rem;display:flex; gap:1rem; flex-flow: row wrap;">
+        <i-blokus id="playground-board" x-width="3" x-height="4">
+            <i-cell x-state="green"></i-cell>
+
+        </i-blokus>
+        <i-blokus id="playground-board" x-width="3" x-height="4">
+            <i-cell x-state="green"></i-cell>
+
         </i-blokus>
 
+        <i-blokus id="playground-board" x-width="4" x-height="4">
+            <i-cell x-state="green"></i-cell>
 
+        </i-blokus>
+        <i-blokus id="playground-board" x-width="4" x-height="4">
+            <i-cell x-state="green"></i-cell>
+
+        </i-blokus>
+        <i-blokus id="playground-board" x-width="4" x-height="4">
+            <i-cell x-state="green"></i-cell>
+
+        </i-blokus>
+    </div>
+
+    <i-blokus id="playground-board" x-width="8" x-height="4">
+        <i-cell></i-cell>
+    </i-blokus>
+
+
+    <div style="display:flex;flex-flow: row wrap; gap: 1rem;">
         <div>
-            <div>
-                <h1>Polyomino to Place</h1>
-                <button onclick="document.getElementById('i3').rotate90d()">Rotate 90 deg</button>
-            </div>
-            <i-blokus id="i3"  style="--board-width: 3; --board-height: 5">
-                <cell x-state="green"></cell>
-                <cell x-state="orange"></cell>
-                <cell x-state="green"></cell>
+            <i-blokus id="i2" x-width="3" x-height="4">
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
 
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="orange"></i-cell>
 
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="orange"></i-cell>
 
-                <cell x-state="orange"></cell>
-                <cell x-state="blue"></cell>
-                <cell x-state="orange"></cell>
-
-                <cell x-state="green"></cell>
-                <cell x-state="orange"></cell>
-                <cell x-state="green"></cell>
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
             </i-blokus>
-            <script>
-                const i3 = document.getElementById("i3");
-                const mainBoard = document.getElementById("playground-board");
-                window.addEventListener("keydown", (ev) => {
-                    if (ev.key == "p") {
-                        const {x, y} = mainBoard.getSelectedCoordinates();
-                        mainBoard.tryPlacePolyomino(x, y, i3.toJSON());
-                    }  
-                })
-            </script>
-        <div>
-            <p>
-                Thinking of blokus in terms of board states:
-                <ul>
-                    <li>A white square is the default <em>Outer Corner</em></li>
-                    <li>A green square is an <em>Outer Corner</em></li>
-                    <li>An orange square is an <em>Side</em></li>
-                    <li>A blue square is an <em>Interior Piece</em></li>
-                </ul>
-
-                With this in mind, we can redefine the rules in terms of the colors:
-
-                <ul>
-                    <li>Only a green squares can be placed on blue squares</li>
-                    <li>Green and orange can be placed on orange, but the color doesn't change</li>
-                    <li>Blue cannot be placed on orange</li>
-                    <li>orange cannot be placed on blue</li>
-                </ul>
-            </p>
+            <i-polyomino x-board="#i2" polyomino-group="main"></i-polyomino>
         </div>
 
-    </body>
+        <div>
+            <i-blokus id="i1" x-width="3" x-height="3">
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+            </i-blokus>
+            <i-polyomino x-board="#i1" polyomino-group="main"></i-polyomino>
+        </div>
+
+        <div>
+            <i-blokus id="l1" x-width="4" x-height="4" style="--board-width: 4; --board-height: 4;">
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+                <i-cell></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="blue"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="orange"></i-cell>
+                <i-cell x-state="green"></i-cell>
+            </i-blokus>
+            <i-polyomino x-board="#l1" polyomino-group="main"></i-polyomino>
+        </div>
+
+    </div>
+    <div>
+        <p>
+            Thinking of blokus in terms of board states:
+        <ul>
+            <li>A white square is the default <em>Outer Corner</em></li>
+            <li>A green square is an <em>Outer Corner</em></li>
+            <li>An orange square is an <em>Side</em></li>
+            <li>A blue square is an <em>Interior Piece</em></li>
+        </ul>
+
+        With this in mind, we can redefine the rules in terms of the colors:
+
+        <ul>
+            <li>Only a green squares can be placed on blue squares</li>
+            <li>Green and orange can be placed on orange, but the color doesn't change</li>
+            <li>Blue cannot be placed on orange</li>
+            <li>orange cannot be placed on blue</li>
+        </ul>
+        </p>
+    </div>
+</body>
+
 </html>
