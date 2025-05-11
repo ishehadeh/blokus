@@ -1,2 +1,4 @@
 [tools]
+"cargo:scryer-prolog" = "0.9.4"
+pnpm = "latest"
 rust = "nightly"

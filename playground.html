@@ -51,6 +51,8 @@
             <slot></slot>
         </div>
     </template>
+
+    <script src="./cgt.js"></script>
     <script>
         const CELL_STATES = [
             "green", // outer corner
@@ -109,7 +111,13 @@
                 // });
             }
 
-
+            /** 
+             * @param {Polyominos} polyominos
+             * @return {BlokusBoard[]}
+             */
+            enumeratePlacements(polyominos) {
+                polyominos.push()
+            }
 
             connectedCallback() {
                 this.tabIndex = -1; // needed for keydown event
@@ -177,6 +185,14 @@
                     }
                 }
                 return null;
+            }
+
+            /**
+             * @param {"red" | "green" | "orange" | "blue" | null}
+             * @return {BoardCell[]}
+             */
+            getCellsOfState(state) {
+                [...this.root.querySelectorAll(`[x-state='${state}']`)]
             }
 
             /**
