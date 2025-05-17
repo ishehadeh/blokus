@@ -23,5 +23,5 @@ export const load: PageLoad = ({ params }) => {
             children.push(child);
         }
     }
-	return { board, children };
+	return { board, children, polyominos };
 };
