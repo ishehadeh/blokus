@@ -6,7 +6,7 @@
 </div>
 
 <script lang="ts">
-    import { Blokus, TileState } from '../../../cgtjs/dist/index.js';
+    import { Blokus, TileState } from '../../../cgtjs/cgtjs/index.ts';
 
     const {
         board,

@@ -9,7 +9,7 @@
 </div>
 
 <script lang="ts">
-    import { Blokus as BlokusBitset  } from '../../../cgtjs/dist/index.js';
+    import { Blokus as BlokusBitset  } from '../../../cgtjs/cgtjs/index.ts';
     import Blokus from './Blokus.svelte';
     import BlokusTree from './BlokusTree.svelte';
 

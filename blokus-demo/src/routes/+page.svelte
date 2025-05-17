@@ -1,6 +1,7 @@
 <script>
+	import Blokus from "$lib/Blokus.svelte";
 	import BlokusTree from "$lib/BlokusTree.svelte";
-	import { Blokus as BlokusBitmap, TileState } from "../../../cgtjs/dist";
+	import { Blokus as BlokusBitmap, TileState } from "../../../cgtjs/cgtjs/index.ts";
 	const polyominos = [
 		BlokusBitmap.fromString(`
 			csc
@@ -14,6 +15,6 @@
 <h1>Welcome to SvelteKit</h1>
 <p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
 
-<BlokusTree 
-	board={board}
-	polyominos={polyominos} />
+<Blokus 
+	board={board} />
+<a href="/{board.serializeAscii()}">View</a>
