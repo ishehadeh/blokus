@@ -1,4 +1,4 @@
-<div id='board' style="--board-width: {board.width}; --board-height: {board.height}">
+<div class="board" style="--board-width: {board.width}; --board-height: {board.height}">
     {#each cells as state, i}
         <div class="cell {state}" onmousedown={(e) => onMouseDown(e, i)} onmouseenter={(e) => onMouseEnter(e, i)}>
         </div>
@@ -9,17 +9,14 @@
     import { Blokus, TileState } from '../../../cgtjs/dist/index.js';
 
     const {
-        width,
-        height,
-        userPolyomino,
+        board,
+        userPolyomino = undefined,
     }: {
-        width: number|bigint,
-        height: number|bigint,
-        userPolyomino: Blokus|undefined,
+        board: Blokus,
+        userPolyomino?: Blokus,
     } = $props();
 
-    const board = Blokus.empty(BigInt(width), BigInt(height));
-    let previewBoard = Blokus.empty(BigInt(width), BigInt(height));
+    let previewBoard = board.clone();
     const cells = $state(new Array(Number(board.width * board.height)).fill(TileState.Empty));
     let hoveredCell = $state({ x: 0n, y: 0n});
     updateCellsArray();
@@ -61,7 +58,7 @@
 </script>
 
 <style>
-    #board {
+    .board {
         display: grid;
         gap: 4px;
         grid-template-rows: repeat(var(--board-height), 1rem);
