@@ -1,6 +1,5 @@
 <script>
 	import Blokus from "$lib/Blokus.svelte";
-	import BlokusTree from "$lib/BlokusTree.svelte";
 	import { Blokus as BlokusBitmap, TileState } from "../../../cgtjs/cgtjs/index.ts";
 	const polyominos = [
 		BlokusBitmap.fromString(`
@@ -17,4 +16,4 @@
 
 <Blokus 
 	board={board} />
-<a href="/{board.serializeAscii()}">View</a>
+<a href="/game/{board.serializeAscii()}">View</a>

@@ -1,5 +1,5 @@
-import type { PageLoad } from './$types';
-import { Blokus as BlokusBitmap,  } from "../../../../cgtjs/cgtjs/index.ts";
+import type { PageLoad } from './$types.ts';
+import { Blokus as BlokusBitmap  } from "$lib/cgtjs.ts";
 
 export const load: PageLoad = ({ params }) => {
     const polyominos = [

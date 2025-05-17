@@ -11,7 +11,7 @@
     <div class="children">
         {#each children as child}
             <Blokus board={child} />
-			<a data-sveltekit-reload href="/{child.serializeAscii()}">
+			<a data-sveltekit-reload href="/game/{child.serializeAscii()}">
 				View
 			</a>
         {/each}
