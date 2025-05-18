@@ -42,10 +42,12 @@
 
     <div class="children">
         {#each children as child}
-            <Blokus board={child} />
-			<a data-sveltekit-reload href="/game/{child.serializeAscii()}">
-				View
-			</a>
+			<div>
+				<Blokus board={child} />
+				<a data-sveltekit-reload href="/game/{child.serializeAscii()}">
+					View
+				</a>
+			</div>
         {/each}
     </div>
 </div>
@@ -55,10 +57,12 @@
 		display: flex;
 		flex-flow: column nowrap;
 		align-items: center;
+		gap: 4em;
 	}
 
 	.children {
 		display: flex;
 		flex-flow: row wrap;
+		gap: 4em;
 	}
 </style>
