@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@sveu/browser": "^1.0.1"
+  }
+}

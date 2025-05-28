@@ -1,7 +1,9 @@
 <script lang="ts">
+	import * as base64 from '$lib/base64';
 	import Blokus from '$lib/Blokus.svelte';
 	import { CanonicalForm, canonicalForm, MoveSet, NumberUpStar, Blokus as BlokusBitmap } from '$lib/cgtjs.ts';
 	import type { PageProps } from './$types';
+	import { page } from '$app/state';
 
 	let { data }: PageProps = $props();
 	const { board, children, polyominos } = data;
@@ -27,6 +29,11 @@
 		return canonicalForm(canonMoves, canonMoves);
 	}
 
+	const gameUrl = (polyomino: BlokusBitmap) => {
+		const url = new URL(page.url);
+		url.pathname = '/game/' + base64.encode(polyomino.serialize());
+		return url.toString();
+	}
 
 </script>
 
@@ -44,7 +51,7 @@
         {#each children as child}
 			<div>
 				<Blokus board={child} />
-				<a data-sveltekit-reload href="/game/{child.serializeAscii()}">
+				<a data-sveltekit-reload href={gameUrl(child)}>
 					View
 				</a>
 			</div>

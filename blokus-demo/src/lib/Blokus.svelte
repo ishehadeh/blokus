@@ -11,17 +11,23 @@
     const {
         board,
         userPolyomino = undefined,
+        placeState: editCell = undefined,
     }: {
         board: Blokus,
         userPolyomino?: Blokus,
+        placeState?: TileState
     } = $props();
 
     let previewBoard = board.clone();
-    const cells = $state(new Array(Number(board.width * board.height)).fill(TileState.Empty));
+    let cells = $state(new Array(Number(board.width * board.height)).fill(TileState.Empty));
     let hoveredCell = $state({ x: 0n, y: 0n});
     updateCellsArray();
 
     function updateCellsArray() {
+        if (BigInt(cells.length) !== board.width * board.height) {
+            cells = new Array(Number(board.width * board.height)).fill(TileState.Empty);
+        }
+
         for (const cellIndex in cells) {
             const currentState = previewBoard.getByIndex(BigInt(cellIndex));
             const oldState = cells[cellIndex];
@@ -36,6 +42,11 @@
             previewBoard = board.clone();
             previewBoard.tryPlacePolyomino(hoveredCell.x, hoveredCell.y, userPolyomino, userPolyomino.width/2n, userPolyomino.height/2n);
             updateCellsArray();
+        } else if (editCell) {
+            previewBoard = board.clone();
+
+            previewBoard.set(hoveredCell.x, hoveredCell.y, editCell);
+            updateCellsArray();
         }
     })
 
@@ -44,6 +55,11 @@
         hoveredCell.y = BigInt(cellIndex) / previewBoard.width;
         if (userPolyomino) {
             board.tryPlacePolyomino(hoveredCell.x, hoveredCell.y, userPolyomino, userPolyomino.width/2n, userPolyomino.height/2n);
+            previewBoard = board.clone();
+
+            updateCellsArray();
+        } else if (editCell) {
+            board.set(hoveredCell.x, hoveredCell.y, editCell);
             previewBoard = board.clone();
 
             updateCellsArray();
