@@ -1,4 +1,4 @@
-<div class="board" style="--board-width: {board.width}; --board-height: {board.height}">
+<div class={['board', ...(showStates ? ['show-states'] : [])]} style="--board-width: {board.width}; --board-height: {board.height}">
     {#each cells as state, i}
         <div class="cell {state}" onmousedown={(e) => onMouseDown(e, i)} onmouseenter={(e) => onMouseEnter(e, i)}>
         </div>
@@ -12,10 +12,12 @@
         board,
         userPolyomino = undefined,
         placeState: editCell = undefined,
+        showStates = false,
     }: {
         board: Blokus,
         userPolyomino?: Blokus,
-        placeState?: TileState
+        placeState?: TileState,
+        showStates?: boolean
     } = $props();
 
     let previewBoard = board.clone();
@@ -76,9 +78,12 @@
 <style>
     .board {
         display: grid;
-        gap: 4px;
         grid-template-rows: repeat(var(--board-height), 1rem);
         grid-template-columns: repeat(var(--board-width), 1rem);
+
+        gap: var(--cell-border-width, 2px);
+        background-color: var(--cell-border-color, lightgrey);
+        border: var(--cell-border-width, 2px) solid var(--cell-border-color, lightgrey);
     }
 
     .cell {
@@ -86,17 +91,20 @@
     }
 
     .interior {
-        --cell-color: blue;
-    }
-    .corner {
-        --cell-color: green;
-    }
-
-    .side {
-        --cell-color: orange;
-    }
-
-    .empty {
         --cell-color: black;
+    }
+
+    .corner.show-states {
+        --cell-color: #6A2E35;
+    }
+
+    .side.show-states {
+        --cell-color: #AAC0AA;
+    }
+
+    .side:not(.show-states),
+    .corner:not(.show-states),
+    .empty {
+        --cell-color: white;
     }
 </style>
