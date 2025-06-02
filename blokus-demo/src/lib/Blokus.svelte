@@ -77,7 +77,7 @@
 
 <style>
     .board {
-        display: grid;
+        display: inline-grid;
         grid-template-rows: repeat(var(--board-height), 1rem);
         grid-template-columns: repeat(var(--board-width), 1rem);
 
