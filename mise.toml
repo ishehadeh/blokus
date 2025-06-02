@@ -1,4 +1,5 @@
 [tools]
+bun = "latest"
 "cargo:scryer-prolog" = "0.9.4"
 node = "latest"
 pnpm = "latest"
