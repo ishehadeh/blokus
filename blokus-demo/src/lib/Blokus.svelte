@@ -13,12 +13,15 @@
         userPolyomino = undefined,
         placeState: editCell = undefined,
         showStates = false,
+        autofillAroundInterior = false
     }: {
         board: Blokus,
         userPolyomino?: Blokus,
         placeState?: TileState,
-        showStates?: boolean
+        showStates: boolean,
+        autofillAroundInterior: boolean,
     } = $props();
+    
 
     let previewBoard = board.clone();
     let cells = $state(new Array(Number(board.width * board.height)).fill(TileState.Empty));
@@ -50,7 +53,25 @@
             previewBoard.set(hoveredCell.x, hoveredCell.y, editCell);
             updateCellsArray();
         }
-    })
+    });
+
+    function autoFillCorner(x: bigint, y: bigint) {
+        if (x >= board.width || x < 0n || y >= board.height || y < 0n)
+            return;
+        const state = board.get(x, y);
+        if (state === TileState.Empty) {
+            board.set(x, y, TileState.Corner);
+        }
+    }
+    
+    function autoFillSide(x: bigint, y: bigint) {
+        if (x >= board.width || x < 0n || y >= board.height || y < 0n)
+            return;
+        const state = board.get(x, y);
+        if (state === TileState.Empty || state === TileState.Corner) {
+            board.set(x, y, TileState.Side);
+        }
+    }
 
     function onMouseDown(event: MouseEvent, cellIndex: number) {
         hoveredCell.x = BigInt(cellIndex) % previewBoard.width;
@@ -62,6 +83,17 @@
             updateCellsArray();
         } else if (editCell) {
             board.set(hoveredCell.x, hoveredCell.y, editCell);
+            if (autofillAroundInterior && editCell == TileState.Interior) {
+                autoFillCorner(hoveredCell.x - 1n, hoveredCell.y + 1n);
+                autoFillCorner(hoveredCell.x + 1n, hoveredCell.y + 1n);
+                autoFillCorner(hoveredCell.x - 1n, hoveredCell.y - 1n);
+                autoFillCorner(hoveredCell.x + 1n, hoveredCell.y - 1n);
+
+                autoFillSide(hoveredCell.x, hoveredCell.y + 1n);
+                autoFillSide(hoveredCell.x + 1n, hoveredCell.y);
+                autoFillSide(hoveredCell.x, hoveredCell.y - 1n);
+                autoFillSide(hoveredCell.x - 1n, hoveredCell.y);
+            }
             previewBoard = board.clone();
 
             updateCellsArray();
@@ -94,16 +126,16 @@
         --cell-color: black;
     }
 
-    .corner.show-states {
+    div.board.show-states > .corner {
         --cell-color: #6A2E35;
     }
 
-    .side.show-states {
+    div.board.show-states > .side {
         --cell-color: #AAC0AA;
     }
 
-    .side:not(.show-states),
-    .corner:not(.show-states),
+    div.board:not(.show-states) > .side,
+    div.board:not(.show-states) > .corner,
     .empty {
         --cell-color: white;
     }

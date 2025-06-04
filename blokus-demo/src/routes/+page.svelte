@@ -52,26 +52,8 @@
 
 	{#if newPolyomino}
 		<form method="GET" data-sveltekit-reload action="">
-			<div>
-			<label>
-				<input type="radio" bind:group={newPolyominoTile} value={TileState.Interior} />
-				Interior
-			</label>
-			<label>
-				<input type="radio" bind:group={newPolyominoTile} value={TileState.Corner} />
-				Corner
-			</label>
-			<label>
-				<input type="radio" bind:group={newPolyominoTile} value={TileState.Empty} />
-				Empty
-			</label>
-			<label>
-				<input type="radio" bind:group={newPolyominoTile} value={TileState.Side} />
-				Side
-			</label>
-		</div>
 		<input hidden name="polyominos" value={polyominosSerialized}>
-		<Blokus placeState={newPolyominoTile} board={newPolyomino} />
+		<Blokus placeState={TileState.Interior} autofillAroundInterior={true} showStates={true} board={newPolyomino} />
 		<input type="submit" onclick={(ev) => polyominosSerialized = serializePolyominos([...polyominos, newPolyomino!])}/>
 	</form>
 	{/if}
