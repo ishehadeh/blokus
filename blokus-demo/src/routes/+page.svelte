@@ -8,13 +8,25 @@
 	let { data }: PageProps = $props();
 	const polyominos = data.polyominos;
 	const url = data.url;
-	const board = BlokusBitmap.empty(3n, 9n);
+
+	let boardWidth = $state(3n);
+	let boardHeight = $state(9n);
+	let board = $derived.by(() => {
+		if (!boardWidth || !boardHeight) return;
+
+		const w = BigInt(boardWidth);
+		const h = BigInt(boardHeight);
+		if (w <= 0n || h <= 0n) return;
+
+		const board = BlokusBitmap.empty(BigInt(boardWidth), BigInt(boardHeight));
+		board.set(0n, 0n, TileState.Corner);
+		return board;
+	});
 	let newPolyomino: BlokusBitmap|null = $state(null);
 	let newPolyominoW = $state(0);
 	let newPolyominoH = $state(0);
 	let newPolyominoTile = $state(TileState.Interior);
 
-	board.set(0n, 0n, TileState.Corner);
 	const serializePolyominos = (poly: BlokusBitmap[]) => poly.map(p => base64.encode(p.serialize())).join(',');
 	const arrayWithout = <T>(arr: T[], indexToRemove: number) => arr.filter((_, i) => indexToRemove !== i);
 	const urlWithPolyominos = (polyominos:  BlokusBitmap[]) => {
@@ -24,8 +36,13 @@
 		location.search = newSearchParams.toString();
 		return location.toString();
 	}
-	const gameUrl = new URL(url);
-	gameUrl.pathname = "/game/" + serializePolyominos([board]);
+
+	const serializedBoard = $derived(serializePolyominos([board]));
+	const gameUrl = $derived.by(() => {
+		const u = new URL(url);
+		u.pathname = `/game/${serializedBoard}`;
+		return u;
+	});
 	$effect(() => {
 		const w = BigInt(newPolyominoW);
 		const h = BigInt(newPolyominoH);
@@ -43,6 +60,11 @@
 		<Blokus board={poly} />
 		<a data-sveltekit-reload href={urlWithPolyominos(arrayWithout(polyominos, i))}>Remove</a>
 	{/each}
+</div>
+
+<div>
+	<input bind:value={boardWidth} type="number" placeholder="Width" />
+	<input bind:value={boardHeight} type="number" placeholder="Height" />
 </div>
 
 <div>

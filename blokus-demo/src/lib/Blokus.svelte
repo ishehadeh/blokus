@@ -46,13 +46,12 @@
         if (userPolyomino) {
             previewBoard = board.clone();
             previewBoard.tryPlacePolyomino(hoveredCell.x, hoveredCell.y, userPolyomino, userPolyomino.width/2n, userPolyomino.height/2n);
-            updateCellsArray();
         } else if (editCell) {
             previewBoard = board.clone();
 
             previewBoard.set(hoveredCell.x, hoveredCell.y, editCell);
-            updateCellsArray();
         }
+        updateCellsArray();
     });
 
     function autoFillCorner(x: bigint, y: bigint) {
