@@ -264,7 +264,7 @@ ssi
 					</figure>
 
 					<figure>
-						<figcaption>Moves from Position A5</figcaption>
+						<figcaption>TODO: WRONG - Moves from Position A5</figcaption>
 
 						<div class="game-group">
 							{#each startingPositions[4].movesDeduplicated([L3, L4]) as move, i}
