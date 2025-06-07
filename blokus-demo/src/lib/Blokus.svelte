@@ -122,20 +122,20 @@
     }
 
     .interior {
-        --cell-color: black;
+        --cell-color: var(--color-interior);
     }
 
     div.board.show-states > .corner {
-        --cell-color: #6A2E35;
+        --cell-color: var(--color-corner);
     }
 
     div.board.show-states > .side {
-        --cell-color: #AAC0AA;
+        --cell-color: var(--color-side);
     }
 
     div.board:not(.show-states) > .side,
     div.board:not(.show-states) > .corner,
     .empty {
-        --cell-color: white;
+        --cell-color: var(--color-empty);
     }
 </style>

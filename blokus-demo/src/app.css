@@ -1,0 +1,7 @@
+body {
+    /* color palette for states */
+    --color-corner: #6A2E35;
+    --color-empty: white;
+    --color-interior: black;
+    --color-side: #AAC0AA;
+}
