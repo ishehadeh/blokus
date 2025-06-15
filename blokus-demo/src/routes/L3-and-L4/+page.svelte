@@ -160,6 +160,26 @@ ssi
 		</div>
 	</section>
 
+	<section>
+		<p>
+			<b>Definition</b> <i>Cell Categorization</i> We have three labels for tiles
+		</p> 
+		<ol>
+			<li><span class="cell-ref-interior"><i>Interior</i></span> tiles are those which make up the actual polyomino</li>
+			<li><span class="cell-ref-side"><i>Side</i></span> tiles are to the top, bottom, left or right of an interior tile</li>
+			<li><span class="cell-ref-corner"><i>Corner</i></span> tiles are to the top-left, top-right, bottom-left or bottom-right of an interior tile</li>
+		</ol>
+		<p>
+			These states are ordered by precedence. If a tile could be categorized as an interior tile or a side tile, then it is an interior tile.
+			If a tile could be a side tile or corner tile, then it is a side tile.
+		</p>
+
+		<div class="controls">
+			<input bind:checked={showStates} type="checkbox" name="show-states" id="show-states" />
+			<label for="show-states">Show Cell Categorization</label>
+		</div>	
+	</section>
+
 	<section id="proof">
 		<div>
 			<p>Let's look at all possible starting moves, using L3</p>
@@ -184,9 +204,6 @@ ssi
 			</figure>
 
 			<p>Try clicking the checkbox below to see some more information about these games</p>
-			<input bind:checked={showStates} type="checkbox" name="show-states" id="show-states" />
-			<label for="show-states"> Detail View </label>
-
 			<div>
 				<p>
 					The <span class="cell-ref-corner">red</span> tiles are corners, meaning we can place
@@ -456,4 +473,20 @@ ssi
 		padding-left: 4px;
 		padding-right: 4px;
 	}
+	.controls {
+		padding: 10px;
+		z-index: 1000;
+		position: sticky;
+		border: 1px solid black;
+		border-radius: 10px;
+		top: 10px;
+		background-color: white;
+	}
+	.controls label, .controls input {
+		cursor: pointer;
+	}
+	section > section:has(.controls) {
+		display: initial;
+	}
+
 </style>
