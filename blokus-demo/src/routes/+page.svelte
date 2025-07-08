@@ -76,7 +76,7 @@
 		<form method="GET" data-sveltekit-reload action="">
 		<input hidden name="polyominos" value={polyominosSerialized}>
 		<Blokus placeState={TileState.Interior} autofillAroundInterior={true} showStates={true} board={newPolyomino} />
-		<input type="submit" onclick={(ev) => polyominosSerialized = serializePolyominos([...polyominos, newPolyomino!])}/>
+		<input type="submit" onclick={(ev) => polyominosSerialized = serializePolyominos([...polyominos, newPolyomino ])}/>
 	</form>
 	{/if}
 </div>
